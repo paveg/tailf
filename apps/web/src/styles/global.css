@@ -21,14 +21,33 @@
 	--accent: oklch(0.97 0.005 250); /* #f6f8fa */
 	--accent-foreground: oklch(0.21 0.01 250); /* #1f2328 */
 	--destructive: oklch(0.55 0.22 25); /* #cf222e */
+	--destructive-foreground: oklch(1 0 0); /* #ffffff */
 	--border: oklch(0.87 0.01 250); /* #d0d7de */
 	--input: oklch(0.87 0.01 250); /* #d0d7de */
 	--ring: oklch(0.52 0.18 255); /* #0969da */
+
+	/* Semantic Colors - GitHub Primer */
+	--success: oklch(0.50 0.18 145); /* #1a7f37 */
+	--success-foreground: oklch(1 0 0); /* #ffffff */
+	--warning: oklch(0.55 0.15 85); /* #9a6700 */
+	--warning-foreground: oklch(1 0 0); /* #ffffff */
+	--info: oklch(0.52 0.18 255); /* #0969da */
+	--info-foreground: oklch(1 0 0); /* #ffffff */
+
+	/* Shadows - GitHub Primer */
+	--shadow-sm: 0 1px 0 rgba(31, 35, 40, 0.04);
+	--shadow-md: 0 3px 6px rgba(140, 149, 159, 0.15);
+	--shadow-lg: 0 8px 24px rgba(140, 149, 159, 0.2);
+	--shadow-xl: 0 12px 48px rgba(140, 149, 159, 0.3);
+
+	/* Chart Colors */
 	--chart-1: oklch(0.52 0.18 255); /* blue */
 	--chart-2: oklch(0.55 0.20 145); /* green */
 	--chart-3: oklch(0.60 0.20 30); /* orange */
 	--chart-4: oklch(0.55 0.20 300); /* purple */
 	--chart-5: oklch(0.55 0.20 0); /* red */
+
+	/* Sidebar */
 	--sidebar: oklch(0.98 0.005 250); /* #f6f8fa */
 	--sidebar-foreground: oklch(0.21 0.01 250); /* #1f2328 */
 	--sidebar-primary: oklch(0.52 0.18 255); /* #0969da */
@@ -56,14 +75,33 @@
 	--accent: oklch(0.22 0.015 260); /* #21262d */
 	--accent-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
 	--destructive: oklch(0.65 0.20 25); /* #f85149 */
+	--destructive-foreground: oklch(1 0 0); /* #ffffff */
 	--border: oklch(0.28 0.01 260); /* #30363d */
 	--input: oklch(0.28 0.01 260); /* #30363d */
 	--ring: oklch(0.62 0.19 255); /* #2f81f7 */
+
+	/* Semantic Colors - GitHub Primer Dark */
+	--success: oklch(0.65 0.20 145); /* #3fb950 */
+	--success-foreground: oklch(0.14 0.015 260); /* #0d1117 */
+	--warning: oklch(0.70 0.16 85); /* #d29922 */
+	--warning-foreground: oklch(0.14 0.015 260); /* #0d1117 */
+	--info: oklch(0.62 0.19 255); /* #2f81f7 */
+	--info-foreground: oklch(1 0 0); /* #ffffff */
+
+	/* Shadows - GitHub Primer Dark */
+	--shadow-sm: 0 0 transparent;
+	--shadow-md: 0 3px 6px rgba(0, 0, 0, 0.3);
+	--shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+	--shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.5);
+
+	/* Chart Colors */
 	--chart-1: oklch(0.62 0.19 255); /* blue */
 	--chart-2: oklch(0.65 0.20 145); /* green */
 	--chart-3: oklch(0.70 0.18 30); /* orange */
 	--chart-4: oklch(0.65 0.20 300); /* purple */
 	--chart-5: oklch(0.65 0.20 0); /* red */
+
+	/* Sidebar */
 	--sidebar: oklch(0.17 0.015 260); /* #161b22 */
 	--sidebar-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
 	--sidebar-primary: oklch(0.62 0.19 255); /* #2f81f7 */
@@ -76,6 +114,7 @@
 
 /* Tailwind v4: Map CSS variables to Tailwind utilities */
 @theme inline {
+	/* Colors - Core */
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -91,15 +130,27 @@
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-destructive: var(--destructive);
-	--color-destructive-foreground: oklch(0.985 0 0);
+	--color-destructive-foreground: var(--destructive-foreground);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+
+	/* Colors - Semantic */
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+
+	/* Colors - Chart */
 	--color-chart-1: var(--chart-1);
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
 	--color-chart-5: var(--chart-5);
+
+	/* Colors - Sidebar */
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);
@@ -119,6 +170,27 @@
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
 	--radius-2xl: calc(var(--radius) + 8px);
+
+	/* Shadows - GitHub Primer Style */
+	--shadow-sm: var(--shadow-sm);
+	--shadow-md: var(--shadow-md);
+	--shadow-lg: var(--shadow-lg);
+	--shadow-xl: var(--shadow-xl);
+
+	/* Spacing Scale (GitHub Primer: 4px base) */
+	--spacing-0: 0px;
+	--spacing-1: 4px;
+	--spacing-2: 8px;
+	--spacing-3: 12px;
+	--spacing-4: 16px;
+	--spacing-5: 20px;
+	--spacing-6: 24px;
+	--spacing-8: 32px;
+	--spacing-10: 40px;
+	--spacing-12: 48px;
+	--spacing-16: 64px;
+	--spacing-20: 80px;
+	--spacing-24: 96px;
 
 	/* Animations */
 	--animate-accordion-down: accordion-down 0.2s ease-out;

@@ -1,0 +1,65 @@
+---
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title="プライバシーポリシー">
+	<div class="container mx-auto max-w-3xl px-4 py-12">
+		<h1 class="mb-8 text-3xl font-bold">プライバシーポリシー</h1>
+
+		<div class="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-muted-foreground">
+			<p class="text-sm">最終更新日: 2026年1月20日</p>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">1. 収集する情報</h2>
+				<p>本サービスでは、以下の情報を収集します：</p>
+				<ul class="list-disc pl-6 space-y-1">
+					<li>GitHubアカウント情報（ユーザー名、メールアドレス）</li>
+					<li>登録されたブログのRSSフィードURL</li>
+					<li>アクセスログ（IPアドレス、ブラウザ情報）</li>
+				</ul>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">2. 情報の利用目的</h2>
+				<p>収集した情報は以下の目的で利用します：</p>
+				<ul class="list-disc pl-6 space-y-1">
+					<li>ユーザー認証とアカウント管理</li>
+					<li>ブログ記事の取得と表示</li>
+					<li>サービスの改善と不正利用の防止</li>
+				</ul>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">3. 情報の第三者提供</h2>
+				<p>
+					法令に基づく場合を除き、収集した個人情報を第三者に提供することはありません。
+				</p>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">4. Cookieの使用</h2>
+				<p>
+					本サービスでは、ユーザー認証とテーマ設定の保存のためにCookieおよびlocalStorageを使用します。
+				</p>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">5. データの保管</h2>
+				<p>
+					データはCloudflareのインフラストラクチャ上で安全に保管されます。
+				</p>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">6. お問い合わせ</h2>
+				<p>
+					プライバシーに関するお問い合わせは、
+					<a href="https://github.com/paveg/tailf/issues" class="text-primary hover:underline" target="_blank" rel="noopener">
+						GitHub Issues
+					</a>
+					までお願いします。
+				</p>
+			</section>
+		</div>
+	</div>
+</Layout>

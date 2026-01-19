@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 interface Props {
 	title: string
@@ -11,12 +12,23 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 ---
 
 <!doctype html>
-<html lang="ja">
+<html lang="ja" class="">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="canonical" href={canonicalUrl} />
+
+		<!-- Theme flash prevention -->
+		<script is:inline>
+			(function() {
+				const theme = localStorage.getItem('theme');
+				const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				if (theme === 'dark' || (theme !== 'light' && systemDark)) {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
 
 		<!-- SEO -->
 		<title>{title} | tailf.dev</title>
@@ -62,7 +74,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 							ランキング
 						</a>
 					</nav>
-					<div class="ml-auto flex items-center space-x-4">
+					<div class="ml-auto flex items-center space-x-2">
+						<ThemeToggle client:load />
 						<slot name="header-actions" />
 					</div>
 				</div>
@@ -76,7 +89,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 						© 2026 tailf.dev - 日本の技術ブログを、もっと見つけやすく
 					</p>
 					<nav class="flex gap-4 text-sm text-muted-foreground">
-						<a href="/about" class="hover:text-foreground">About</a>
+						<a href="/terms" class="hover:text-foreground">利用規約</a>
+						<a href="/privacy" class="hover:text-foreground">プライバシー</a>
 						<a href="https://github.com/paveg/tailf" class="hover:text-foreground" target="_blank" rel="noopener">
 							GitHub
 						</a>
