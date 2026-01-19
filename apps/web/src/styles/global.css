@@ -4,72 +4,74 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	--radius: 0.625rem;
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.52 0.16 145);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.52 0.16 145);
-	--chart-1: oklch(0.646 0.222 41.116);
-	--chart-2: oklch(0.6 0.118 184.704);
-	--chart-3: oklch(0.398 0.07 227.392);
-	--chart-4: oklch(0.828 0.189 84.429);
-	--chart-5: oklch(0.769 0.188 70.08);
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.52 0.16 145);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.97 0 0);
-	--sidebar-accent-foreground: oklch(0.205 0 0);
-	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.52 0.16 145);
+	/* GitHub Primer Light */
+	--radius: 0.375rem;
+	--background: oklch(1 0 0); /* #ffffff */
+	--foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--card: oklch(0.98 0.005 250); /* #f6f8fa */
+	--card-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--popover: oklch(1 0 0); /* #ffffff */
+	--popover-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--primary: oklch(0.52 0.18 255); /* #0969da */
+	--primary-foreground: oklch(1 0 0); /* #ffffff */
+	--secondary: oklch(0.97 0.005 250); /* #f6f8fa */
+	--secondary-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--muted: oklch(0.97 0.005 250); /* #f6f8fa */
+	--muted-foreground: oklch(0.50 0.02 250); /* #656d76 */
+	--accent: oklch(0.97 0.005 250); /* #f6f8fa */
+	--accent-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--destructive: oklch(0.55 0.22 25); /* #cf222e */
+	--border: oklch(0.87 0.01 250); /* #d0d7de */
+	--input: oklch(0.87 0.01 250); /* #d0d7de */
+	--ring: oklch(0.52 0.18 255); /* #0969da */
+	--chart-1: oklch(0.52 0.18 255); /* blue */
+	--chart-2: oklch(0.55 0.20 145); /* green */
+	--chart-3: oklch(0.60 0.20 30); /* orange */
+	--chart-4: oklch(0.55 0.20 300); /* purple */
+	--chart-5: oklch(0.55 0.20 0); /* red */
+	--sidebar: oklch(0.98 0.005 250); /* #f6f8fa */
+	--sidebar-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--sidebar-primary: oklch(0.52 0.18 255); /* #0969da */
+	--sidebar-primary-foreground: oklch(1 0 0); /* #ffffff */
+	--sidebar-accent: oklch(0.94 0.01 250); /* hover bg */
+	--sidebar-accent-foreground: oklch(0.21 0.01 250); /* #1f2328 */
+	--sidebar-border: oklch(0.87 0.01 250); /* #d0d7de */
+	--sidebar-ring: oklch(0.52 0.18 255); /* #0969da */
 }
 
 .dark {
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.62 0.18 145);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.62 0.18 145);
-	--chart-1: oklch(0.488 0.243 264.376);
-	--chart-2: oklch(0.696 0.17 162.48);
-	--chart-3: oklch(0.769 0.188 70.08);
-	--chart-4: oklch(0.627 0.265 303.9);
-	--chart-5: oklch(0.645 0.246 16.439);
-	--sidebar: oklch(0.205 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.62 0.18 145);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.62 0.18 145);
+	/* GitHub Primer Dark */
+	--background: oklch(0.14 0.015 260); /* #0d1117 */
+	--foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--card: oklch(0.17 0.015 260); /* #161b22 */
+	--card-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--popover: oklch(0.17 0.015 260); /* #161b22 */
+	--popover-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--primary: oklch(0.62 0.19 255); /* #2f81f7 */
+	--primary-foreground: oklch(1 0 0); /* #ffffff */
+	--secondary: oklch(0.22 0.015 260); /* #21262d */
+	--secondary-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--muted: oklch(0.22 0.015 260); /* #21262d */
+	--muted-foreground: oklch(0.58 0.02 250); /* #7d8590 */
+	--accent: oklch(0.22 0.015 260); /* #21262d */
+	--accent-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--destructive: oklch(0.65 0.20 25); /* #f85149 */
+	--border: oklch(0.28 0.01 260); /* #30363d */
+	--input: oklch(0.28 0.01 260); /* #30363d */
+	--ring: oklch(0.62 0.19 255); /* #2f81f7 */
+	--chart-1: oklch(0.62 0.19 255); /* blue */
+	--chart-2: oklch(0.65 0.20 145); /* green */
+	--chart-3: oklch(0.70 0.18 30); /* orange */
+	--chart-4: oklch(0.65 0.20 300); /* purple */
+	--chart-5: oklch(0.65 0.20 0); /* red */
+	--sidebar: oklch(0.17 0.015 260); /* #161b22 */
+	--sidebar-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--sidebar-primary: oklch(0.62 0.19 255); /* #2f81f7 */
+	--sidebar-primary-foreground: oklch(1 0 0); /* #ffffff */
+	--sidebar-accent: oklch(0.25 0.015 260); /* hover bg */
+	--sidebar-accent-foreground: oklch(0.93 0.01 250); /* #e6edf3 */
+	--sidebar-border: oklch(0.28 0.01 260); /* #30363d */
+	--sidebar-ring: oklch(0.62 0.19 255); /* #2f81f7 */
 }
 
 /* Tailwind v4: Map CSS variables to Tailwind utilities */
@@ -108,7 +110,7 @@
 	--color-sidebar-ring: var(--sidebar-ring);
 
 	/* Fonts */
-	--font-sans: 'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+	--font-sans: 'Zen Kaku Gothic New', 'Inter', 'Hiragino Sans', sans-serif;
 	--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
 	/* Radius */
