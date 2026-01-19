@@ -8,7 +8,7 @@
 		"dev:web": "pnpm --filter @tailf/web dev",
 		"dev:api": "pnpm --filter @tailf/api dev",
 		"build": "pnpm --filter @tailf/web build",
-		"build:api": "pnpm --filter @tailf/api build",
+		"build:prod": "pnpm db:migrate:prod && pnpm build",
 		"deploy": "pnpm --filter @tailf/api deploy",
 		"db:generate": "pnpm --filter @tailf/api db:generate",
 		"db:migrate:local": "pnpm --filter @tailf/api db:migrate:local",
@@ -20,6 +20,9 @@
 		"prepare": "husky"
 	},
 	"packageManager": "pnpm@10.14.0",
+	"engines": {
+		"node": ">=20"
+	},
 	"lint-staged": {
 		"*.{js,ts,jsx,tsx,json,css}": [
 			"biome check --write --no-errors-on-unmatched"
