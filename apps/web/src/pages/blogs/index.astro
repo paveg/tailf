@@ -1,0 +1,56 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/card'
+import { Badge } from '../../components/ui/badge'
+
+// ISR - regenerate every hour
+export const prerender = true
+
+// TODO: Fetch from API
+const blogs = [
+	{
+		id: '1',
+		title: 'Dev Blog',
+		description: 'Web開発に関する技術ブログ',
+		siteUrl: 'https://example.com',
+		postsCount: 42,
+	},
+	{
+		id: '2',
+		title: 'Tech Notes',
+		description: 'TypeScriptとReactの実践的なTips',
+		siteUrl: 'https://example.com',
+		postsCount: 128,
+	},
+]
+---
+
+<Layout title="ブログ一覧" description="登録されている技術ブログの一覧">
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="mb-8 text-3xl font-bold">ブログ一覧</h1>
+		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+			{blogs.map((blog) => (
+				<a href={`/blogs/${blog.id}`} class="block">
+					<Card className="group h-full transition-colors hover:bg-muted/50">
+						<CardHeader>
+							<div class="flex items-center justify-between">
+								<CardTitle className="group-hover:text-primary">
+									{blog.title}
+								</CardTitle>
+								<Badge variant="secondary">{blog.postsCount} 記事</Badge>
+							</div>
+							{blog.description && (
+								<CardDescription className="line-clamp-2">
+									{blog.description}
+								</CardDescription>
+							)}
+							<p class="text-xs text-muted-foreground">
+								{new URL(blog.siteUrl).hostname}
+							</p>
+						</CardHeader>
+					</Card>
+				</a>
+			))}
+		</div>
+	</div>
+</Layout>

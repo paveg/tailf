@@ -1,0 +1,35 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { PostCard } from '../../components/PostCard'
+
+// TODO: Fetch from API at build time
+const posts = [
+	{
+		id: '1',
+		title: 'Next.js 15の新機能を徹底解説',
+		summary: 'Next.js 15で追加された新機能について、実際のコード例を交えながら解説します。',
+		url: 'https://example.com/nextjs-15',
+		publishedAt: new Date('2025-01-15'),
+		blog: { title: 'Dev Blog', siteUrl: 'https://example.com' },
+	},
+	{
+		id: '2',
+		title: 'TypeScript 5.7の型推論改善',
+		summary: 'TypeScript 5.7で改善された型推論について詳しく見ていきます。',
+		url: 'https://example.com/typescript-57',
+		publishedAt: new Date('2025-01-14'),
+		blog: { title: 'Tech Notes', siteUrl: 'https://example.com' },
+	},
+]
+---
+
+<Layout title="新着記事" description="日本の技術ブログの新着記事一覧">
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="mb-8 text-3xl font-bold">新着記事</h1>
+		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+			{posts.map((post) => (
+				<PostCard post={post} />
+			))}
+		</div>
+	</div>
+</Layout>

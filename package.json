@@ -1,0 +1,35 @@
+{
+	"name": "tailf",
+	"version": "0.1.0",
+	"private": true,
+	"description": "tailf.dev - Japanese developer blog aggregator",
+	"scripts": {
+		"dev": "concurrently -n api,web -c blue,green \"pnpm --filter @tailf/api dev\" \"pnpm --filter @tailf/web dev\"",
+		"dev:web": "pnpm --filter @tailf/web dev",
+		"dev:api": "pnpm --filter @tailf/api dev",
+		"build": "pnpm --filter @tailf/web build",
+		"build:api": "pnpm --filter @tailf/api build",
+		"deploy": "pnpm --filter @tailf/api deploy",
+		"db:generate": "pnpm --filter @tailf/api db:generate",
+		"db:migrate:local": "pnpm --filter @tailf/api db:migrate:local",
+		"db:migrate:prod": "pnpm --filter @tailf/api db:migrate:prod",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"typecheck": "tsc --build",
+		"prepare": "husky"
+	},
+	"packageManager": "pnpm@10.14.0",
+	"lint-staged": {
+		"*.{js,ts,jsx,tsx,json,css}": [
+			"biome check --write --no-errors-on-unmatched"
+		]
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.11",
+		"concurrently": "^9.0.0",
+		"husky": "9.1.7",
+		"lint-staged": "16.2.7",
+		"typescript": "^5.7.0"
+	}
+}

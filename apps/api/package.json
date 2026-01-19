@@ -1,0 +1,31 @@
+{
+	"name": "@tailf/api",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"dev:remote": "wrangler dev --remote",
+		"build": "wrangler deploy --dry-run --outdir=dist",
+		"deploy": "wrangler deploy",
+		"db:generate": "drizzle-kit generate && ./scripts/dump-schema.sh",
+		"db:migrate:local": "wrangler d1 migrations apply tailf-db --local",
+		"db:migrate:prod": "wrangler d1 migrations apply tailf-db --remote",
+		"db:rollback:local": "./scripts/rollback.sh",
+		"db:rollback:prod": "./scripts/rollback.sh --remote",
+		"db:studio": "drizzle-kit studio"
+	},
+	"dependencies": {
+		"@hono/valibot-validator": "^0.5.0",
+		"@tailf/shared": "workspace:*",
+		"drizzle-orm": "^0.38.0",
+		"fast-xml-parser": "^4.5.0",
+		"hono": "^4.6.0",
+		"valibot": "^1.0.0"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20241218.0",
+		"drizzle-kit": "^0.30.0",
+		"wrangler": "^4.59.2"
+	}
+}

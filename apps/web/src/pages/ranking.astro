@@ -1,0 +1,44 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { PostCard } from '../components/PostCard'
+import { Button } from '../components/ui/button'
+
+// ISR - regenerate daily
+export const prerender = true
+
+// TODO: Fetch from API with ranking data
+const weeklyPosts = [
+	{
+		id: '1',
+		title: 'Next.js 15の新機能を徹底解説',
+		summary: 'Next.js 15で追加された新機能について、実際のコード例を交えながら解説します。',
+		url: 'https://example.com/nextjs-15',
+		publishedAt: new Date('2025-01-15'),
+		blog: { title: 'Dev Blog', siteUrl: 'https://example.com' },
+	},
+]
+---
+
+<Layout title="人気記事ランキング" description="今週の人気技術記事ランキング">
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="mb-8 text-3xl font-bold">人気記事ランキング</h1>
+
+		<div class="mb-6 flex gap-2">
+			<Button>週間</Button>
+			<Button variant="outline">月間</Button>
+		</div>
+
+		<div class="space-y-4">
+			{weeklyPosts.map((post, index) => (
+				<div class="flex gap-4">
+					<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+						{index + 1}
+					</div>
+					<div class="flex-1">
+						<PostCard post={post} />
+					</div>
+				</div>
+			))}
+		</div>
+	</div>
+</Layout>

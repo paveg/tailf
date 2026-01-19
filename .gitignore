@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.output/
+.astro/
+*.tsbuildinfo
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars
+*.sqlite
+*.sqlite-journal
+
+# Environment
+.env
+.env.*
+!.env.example
+!.dev.vars.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Turborepo
+.turbo/
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Drizzle
+drizzle/meta/_journal.json.bak
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.npm/

@@ -1,0 +1,88 @@
+---
+import '../styles/global.css'
+
+interface Props {
+	title: string
+	description?: string
+}
+
+const { title, description = '日本の技術ブログを、もっと見つけやすく' } = Astro.props
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
+---
+
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="canonical" href={canonicalUrl} />
+
+		<!-- SEO -->
+		<title>{title} | tailf.dev</title>
+		<meta name="description" content={description} />
+
+		<!-- OGP -->
+		<meta property="og:title" content={`${title} | tailf.dev`} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:site_name" content="tailf.dev" />
+		<meta property="og:locale" content="ja_JP" />
+
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={`${title} | tailf.dev`} />
+		<meta name="twitter:description" content={description} />
+
+		<!-- Fonts -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body class="min-h-screen bg-background antialiased">
+		<div class="relative flex min-h-screen flex-col">
+			<header class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+				<div class="container mx-auto flex h-14 items-center px-4">
+					<a href="/" class="flex items-center space-x-2">
+						<span class="font-mono text-xl font-bold text-primary">tailf</span>
+						<span class="text-sm text-muted-foreground">.dev</span>
+					</a>
+					<nav class="ml-8 hidden gap-6 md:flex">
+						<a href="/posts" class="text-sm font-medium text-muted-foreground hover:text-foreground">
+							新着記事
+						</a>
+						<a href="/blogs" class="text-sm font-medium text-muted-foreground hover:text-foreground">
+							ブログ一覧
+						</a>
+						<a href="/ranking" class="text-sm font-medium text-muted-foreground hover:text-foreground">
+							ランキング
+						</a>
+					</nav>
+					<div class="ml-auto flex items-center space-x-4">
+						<slot name="header-actions" />
+					</div>
+				</div>
+			</header>
+			<main class="flex-1">
+				<slot />
+			</main>
+			<footer class="border-t py-6">
+				<div class="container mx-auto flex flex-col items-center gap-4 px-4 md:flex-row md:justify-between">
+					<p class="text-sm text-muted-foreground">
+						© 2025 tailf.dev - 日本の技術ブログを、もっと見つけやすく
+					</p>
+					<nav class="flex gap-4 text-sm text-muted-foreground">
+						<a href="/about" class="hover:text-foreground">About</a>
+						<a href="https://github.com/paveg/tailf" class="hover:text-foreground" target="_blank" rel="noopener">
+							GitHub
+						</a>
+					</nav>
+				</div>
+			</footer>
+		</div>
+	</body>
+</html>

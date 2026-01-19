@@ -1,0 +1,38 @@
+name = "tailf"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+binding = "ASSETS"
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+
+[dev]
+port = 8788
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tailf-db"
+database_id = "63a1a02a-41b7-4a99-9f2d-874c1c7ad874"
+
+[vars]
+ENVIRONMENT = "development"
+APP_URL = "https://tailf.dev"
+# Required secrets (set via `wrangler secret put <NAME>`):
+# - GITHUB_CLIENT_ID
+# - GITHUB_CLIENT_SECRET
+# - SESSION_SECRET (generate: openssl rand -base64 32)
+
+# Cron trigger for RSS fetching (every hour)
+[triggers]
+crons = ["0 * * * *"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
