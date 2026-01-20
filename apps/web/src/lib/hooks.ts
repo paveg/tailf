@@ -1,24 +1,37 @@
 /**
- * TanStack Query hooks for tailf.dev
+ * TanStack Query hooks for tailf
  */
+import type { PostWithFeed } from '@tailf/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CursorResponse } from './api'
 import {
-	followBlog,
-	type GetBlogsParams,
+	deleteFeed,
+	followFeed,
+	type GetFeedsParams,
 	type GetPostsParams,
-	getBlog,
-	getBlogs,
 	getCurrentUser,
-	getFeed,
-	getFollowingBlogs,
+	getFeedById,
+	getFeeds,
+	getFollowingFeeds,
+	getMyFeeds,
 	getPosts,
 	getRankingPosts,
+	getUserFeed,
 	logout,
+	type RegisterFeedParams,
+	registerFeed,
 	type SearchPostsParams,
 	searchPosts,
-	unfollowBlog,
+	unfollowFeed,
 } from './api'
+
+/**
+ * Options for cursor-based infinite query hooks.
+ */
+interface CursorInfiniteQueryOptions<T> {
+	enabled?: boolean
+	initialData?: CursorResponse<T[]>
+}
 
 /**
  * Factory for creating cursor-based infinite query hooks.
@@ -26,14 +39,22 @@ import {
 function createCursorInfiniteQuery<T>(
 	queryKey: readonly unknown[],
 	queryFn: (cursor?: string) => Promise<CursorResponse<T[]>>,
-	options?: { enabled?: boolean },
+	options?: CursorInfiniteQueryOptions<T>,
 ) {
+	const { initialData, ...restOptions } = options ?? {}
+
 	return useInfiniteQuery({
 		queryKey,
 		queryFn: ({ pageParam }) => queryFn(pageParam),
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
-		...options,
+		...(initialData && {
+			initialData: {
+				pages: [initialData],
+				pageParams: [undefined],
+			},
+		}),
+		...restOptions,
 	})
 }
 
@@ -41,36 +62,45 @@ function createCursorInfiniteQuery<T>(
 export const queryKeys = {
 	posts: {
 		all: ['posts'] as const,
-		list: (limit?: number) => ['posts', 'list', { limit }] as const,
-		search: (q: string, limit?: number) => ['posts', 'search', { q, limit }] as const,
-		ranking: (period: 'week' | 'month', limit: number) =>
-			['posts', 'ranking', period, limit] as const,
+		list: (limit?: number, techOnly?: boolean) => ['posts', 'list', { limit, techOnly }] as const,
+		search: (q: string, limit?: number, techOnly?: boolean) =>
+			['posts', 'search', { q, limit, techOnly }] as const,
+		ranking: (period: 'week' | 'month', limit: number, techOnly?: boolean) =>
+			['posts', 'ranking', period, limit, techOnly] as const,
 	},
-	blogs: {
-		all: ['blogs'] as const,
-		list: (params?: GetBlogsParams) => ['blogs', 'list', params] as const,
-		detail: (id: string) => ['blogs', 'detail', id] as const,
+	feeds: {
+		all: ['feeds'] as const,
+		list: (params?: GetFeedsParams) => ['feeds', 'list', params] as const,
+		detail: (id: string) => ['feeds', 'detail', id] as const,
+		mine: ['feeds', 'mine'] as const,
 	},
 	user: {
 		current: ['user', 'current'] as const,
 	},
-	feed: {
-		posts: (limit?: number) => ['feed', 'posts', { limit }] as const,
-		following: ['feed', 'following'] as const,
+	userFeed: {
+		posts: (limit?: number, techOnly?: boolean) =>
+			['userFeed', 'posts', { limit, techOnly }] as const,
+		following: ['userFeed', 'following'] as const,
 	},
 }
 
 // Posts - Infinite scroll with cursor-based pagination
-export function useInfinitePosts(limit = 12) {
-	return createCursorInfiniteQuery(queryKeys.posts.list(limit), (cursor) =>
-		getPosts({ cursor, limit }),
+export function useInfinitePosts(
+	limit = 12,
+	techOnly = false,
+	initialData?: CursorResponse<PostWithFeed[]>,
+) {
+	return createCursorInfiniteQuery(
+		queryKeys.posts.list(limit, techOnly),
+		(cursor) => getPosts({ cursor, limit, techOnly }),
+		{ initialData },
 	)
 }
 
-export function useInfiniteSearchPosts(q: string, limit = 12) {
+export function useInfiniteSearchPosts(q: string, limit = 12, techOnly = false) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.search(q, limit),
-		(cursor) => searchPosts({ q, cursor, limit }),
+		queryKeys.posts.search(q, limit, techOnly),
+		(cursor) => searchPosts({ q, cursor, limit, techOnly }),
 		{ enabled: q.length >= 2 },
 	)
 }
@@ -91,25 +121,25 @@ export function useSearchPosts(params: SearchPostsParams) {
 	})
 }
 
-export function useRankingPosts(period: 'week' | 'month' = 'week', limit = 20) {
+export function useRankingPosts(period: 'week' | 'month' = 'week', limit = 20, techOnly = false) {
 	return useQuery({
-		queryKey: queryKeys.posts.ranking(period, limit),
-		queryFn: () => getRankingPosts(period, limit),
+		queryKey: queryKeys.posts.ranking(period, limit, techOnly),
+		queryFn: () => getRankingPosts(period, limit, techOnly),
 	})
 }
 
-// Blogs
-export function useBlogs(params?: GetBlogsParams) {
+// Feeds
+export function useFeeds(params?: GetFeedsParams) {
 	return useQuery({
-		queryKey: queryKeys.blogs.list(params),
-		queryFn: () => getBlogs(params),
+		queryKey: queryKeys.feeds.list(params),
+		queryFn: () => getFeeds(params),
 	})
 }
 
-export function useBlog(id: string) {
+export function useFeed(id: string) {
 	return useQuery({
-		queryKey: queryKeys.blogs.detail(id),
-		queryFn: () => getBlog(id),
+		queryKey: queryKeys.feeds.detail(id),
+		queryFn: () => getFeedById(id),
 		enabled: !!id,
 	})
 }
@@ -131,54 +161,88 @@ export function useLogout() {
 		mutationFn: logout,
 		onSuccess: () => {
 			queryClient.setQueryData(queryKeys.user.current, null)
-			queryClient.invalidateQueries({ queryKey: queryKeys.feed.posts() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.posts() })
 		},
 	})
 }
 
-// Feed - Infinite scroll with cursor-based pagination
-export function useInfiniteFeed(limit = 12) {
-	return createCursorInfiniteQuery(queryKeys.feed.posts(limit), (cursor) =>
-		getFeed({ cursor, limit }),
+// User Feed - Infinite scroll with cursor-based pagination
+export function useInfiniteUserFeed(limit = 12, techOnly = false) {
+	return createCursorInfiniteQuery(queryKeys.userFeed.posts(limit, techOnly), (cursor) =>
+		getUserFeed({ cursor, limit, techOnly }),
 	)
 }
 
-// Legacy feed hook
-export function useFeed(params?: GetPostsParams) {
+// Legacy user feed hook
+export function useUserFeed(params?: GetPostsParams) {
 	return useQuery({
-		queryKey: ['feed', 'legacy', params],
-		queryFn: () => getFeed(params),
+		queryKey: ['userFeed', 'legacy', params],
+		queryFn: () => getUserFeed(params),
 	})
 }
 
-export function useFollowingBlogs() {
+export function useFollowingFeeds() {
 	return useQuery({
-		queryKey: queryKeys.feed.following,
-		queryFn: getFollowingBlogs,
+		queryKey: queryKeys.userFeed.following,
+		queryFn: getFollowingFeeds,
+	})
+}
+
+// Feed Registration
+export function useRegisterFeed() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (params: RegisterFeedParams) => registerFeed(params),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
+			queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
+		},
 	})
 }
 
 // Follow/Unfollow
-export function useFollowBlog() {
+export function useFollowFeed() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: followBlog,
+		mutationFn: followFeed,
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.blogs.all })
-			queryClient.invalidateQueries({ queryKey: queryKeys.feed.following })
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
+			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.following })
 		},
 	})
 }
 
-export function useUnfollowBlog() {
+export function useUnfollowFeed() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: unfollowBlog,
+		mutationFn: unfollowFeed,
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.blogs.all })
-			queryClient.invalidateQueries({ queryKey: queryKeys.feed.following })
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
+			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.following })
+		},
+	})
+}
+
+// My Feeds
+export function useMyFeeds() {
+	return useQuery({
+		queryKey: queryKeys.feeds.mine,
+		queryFn: getMyFeeds,
+	})
+}
+
+export function useDeleteFeed() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: deleteFeed,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.mine })
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
+			queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
 		},
 	})
 }

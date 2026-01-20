@@ -3,17 +3,20 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { createDb } from './db'
 import { authRoute } from './routes/auth'
-import { blogsRoute } from './routes/blogs'
-import { feedRoute } from './routes/feed'
+import { userFeedRoute } from './routes/feed'
+import { feedsRoute } from './routes/feeds'
 import { postsRoute } from './routes/posts'
 import { fetchRssFeeds } from './services/rss'
 
 export type Env = {
 	DB: D1Database
+	AI: Ai
 	GITHUB_CLIENT_ID: string
 	GITHUB_CLIENT_SECRET: string
 	SESSION_SECRET: string
 	ENVIRONMENT: string
+	API_URL?: string
+	APP_URL?: string
 }
 
 type Variables = {
@@ -28,8 +31,8 @@ app.use(
 	'*',
 	cors({
 		origin: (origin) => {
-			// Allow localhost and tailf.dev
-			if (origin.includes('localhost') || origin.includes('tailf.dev')) {
+			// Allow localhost and tailf
+			if (origin.includes('localhost') || origin.includes('tailf')) {
 				return origin
 			}
 			return null
@@ -49,14 +52,15 @@ app.get('/health', (c) => c.json({ status: 'ok' }))
 
 // Routes
 app.route('/api/auth', authRoute)
-app.route('/api/blogs', blogsRoute)
+app.route('/api/feeds', feedsRoute)
 app.route('/api/posts', postsRoute)
-app.route('/api/feed', feedRoute)
+app.route('/api/feed', userFeedRoute)
 
 // Cron handler for RSS fetching
 export default {
 	fetch: app.fetch,
 	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-		ctx.waitUntil(fetchRssFeeds(createDb(env.DB)))
+		// Pass AI binding for embedding-based tech score calculation
+		ctx.waitUntil(fetchRssFeeds(createDb(env.DB), env.AI))
 	},
 }

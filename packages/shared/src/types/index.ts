@@ -8,13 +8,19 @@ export interface User {
 	updatedAt: Date
 }
 
-// Blog
-export interface Blog {
+// Feed types
+export const FEED_TYPES = ['blog', 'slide'] as const
+export type FeedType = (typeof FEED_TYPES)[number]
+
+// Feed (RSS/Atom feed source: blog, slide, etc.)
+export interface Feed {
 	id: string
 	title: string
 	description: string | null
 	feedUrl: string
 	siteUrl: string
+	type: FeedType
+	isOfficial: boolean
 	authorId: string | null
 	createdAt: Date
 	updatedAt: Date
@@ -28,13 +34,13 @@ export interface Post {
 	url: string
 	thumbnailUrl: string | null
 	publishedAt: Date
-	blogId: string
+	feedId: string
 	createdAt: Date
 }
 
-// Post with blog info (for API responses)
-export interface PostWithBlog extends Post {
-	blog: {
+// Post with feed info (for API responses)
+export interface PostWithFeed extends Post {
+	feed: {
 		title: string
 		siteUrl: string
 	}
@@ -43,7 +49,7 @@ export interface PostWithBlog extends Post {
 // Follow
 export interface Follow {
 	userId: string
-	blogId: string
+	feedId: string
 	createdAt: Date
 }
 

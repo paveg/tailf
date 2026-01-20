@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { generateId } from '../utils/id'
+import { calculateTechScore, calculateTechScoreWithEmbedding } from './tech-score'
 
 interface RssItem {
 	title: string
@@ -11,7 +12,7 @@ interface RssItem {
 	thumbnail?: string
 }
 
-interface RssFeed {
+export interface RssFeed {
 	title: string
 	description?: string
 	link: string
@@ -133,36 +134,51 @@ function parseFeed(xml: string): RssFeed | null {
 	return parseRss(xml)
 }
 
-export async function fetchRssFeeds(db: Database): Promise<void> {
-	console.log('Starting RSS feed fetch...')
-
-	const allBlogs = await db.query.blogs.findMany()
-
-	for (const blog of allBlogs) {
+/**
+ * Calculate tech score with AI embedding if available, fallback to keyword-based
+ */
+async function getTechScore(ai: Ai | undefined, title: string, summary?: string): Promise<number> {
+	if (ai) {
 		try {
-			console.log(`Fetching: ${blog.feedUrl}`)
+			return await calculateTechScoreWithEmbedding(ai, title, summary)
+		} catch (error) {
+			console.warn('[TechScore] Embedding failed, using keyword fallback:', error)
+		}
+	}
+	return calculateTechScore(title, summary)
+}
 
-			const response = await fetch(blog.feedUrl, {
+export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
+	console.log('Starting RSS feed fetch...')
+	console.log(`[TechScore] Using ${ai ? 'embedding-based' : 'keyword-based'} scoring`)
+
+	const allFeeds = await db.query.feeds.findMany()
+
+	for (const feed of allFeeds) {
+		try {
+			console.log(`Fetching: ${feed.feedUrl}`)
+
+			const response = await fetch(feed.feedUrl, {
 				headers: {
-					'User-Agent': 'tailf.dev RSS Aggregator',
+					'User-Agent': 'tailf RSS Aggregator',
 				},
 			})
 
 			if (!response.ok) {
-				console.error(`Failed to fetch ${blog.feedUrl}: ${response.status}`)
+				console.error(`Failed to fetch ${feed.feedUrl}: ${response.status}`)
 				continue
 			}
 
 			const xml = await response.text()
-			const feed = parseFeed(xml)
+			const parsedFeed = parseFeed(xml)
 
-			if (!feed) {
-				console.error(`Failed to parse feed: ${blog.feedUrl}`)
+			if (!parsedFeed) {
+				console.error(`Failed to parse feed: ${feed.feedUrl}`)
 				continue
 			}
 
 			// Insert new posts
-			for (const item of feed.items) {
+			for (const item of parsedFeed.items) {
 				const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date()
 
 				// Check if post already exists
@@ -171,20 +187,23 @@ export async function fetchRssFeeds(db: Database): Promise<void> {
 				})
 
 				if (!existing) {
+					const summary = item.description?.slice(0, 500)
+					const techScore = await getTechScore(ai, item.title, summary)
 					await db.insert(posts).values({
 						id: generateId(),
 						title: item.title,
-						summary: item.description?.slice(0, 500),
+						summary,
 						url: item.link,
 						thumbnailUrl: item.thumbnail,
 						publishedAt,
-						blogId: blog.id,
+						feedId: feed.id,
+						techScore,
 					})
-					console.log(`Added: ${item.title}`)
+					console.log(`Added: ${item.title} (techScore: ${techScore.toFixed(2)})`)
 				}
 			}
 		} catch (error) {
-			console.error(`Error processing ${blog.feedUrl}:`, error)
+			console.error(`Error processing ${feed.feedUrl}:`, error)
 		}
 	}
 
@@ -196,7 +215,7 @@ export async function fetchAndParseFeed(feedUrl: string): Promise<RssFeed | null
 	try {
 		const response = await fetch(feedUrl, {
 			headers: {
-				'User-Agent': 'tailf.dev RSS Aggregator',
+				'User-Agent': 'tailf RSS Aggregator',
 			},
 		})
 

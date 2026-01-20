@@ -9,7 +9,7 @@ interface PostCardProps {
 		url: string
 		publishedAt: string | Date
 		thumbnailUrl?: string | null
-		blog: {
+		feed: {
 			title: string
 			siteUrl: string
 			author?: {
@@ -39,15 +39,15 @@ export function PostCard({ post }: PostCardProps) {
 					</CardTitle>
 					<div className="flex items-center justify-between gap-2 overflow-hidden">
 						<div className="flex items-center gap-2 min-w-0 flex-1">
-							{post.blog.author?.avatarUrl && (
+							{post.feed.author?.avatarUrl && (
 								<img
-									src={post.blog.author.avatarUrl}
-									alt={post.blog.author.name}
+									src={post.feed.author.avatarUrl}
+									alt={post.feed.author.name}
 									className="size-5 shrink-0 rounded-full"
 								/>
 							)}
 							<span className="truncate text-xs text-muted-foreground">
-								{post.blog.author?.name ?? post.blog.title}
+								{post.feed.author?.name ?? post.feed.title}
 							</span>
 						</div>
 						<span className="shrink-0 truncate text-xs text-muted-foreground/60">

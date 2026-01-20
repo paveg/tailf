@@ -1,67 +1,87 @@
 import { vValidator } from '@hono/valibot-validator'
 import { cursorPaginationQuerySchema } from '@tailf/shared'
-import { and, desc, eq, inArray, lt } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lt } from 'drizzle-orm'
 import { Hono } from 'hono'
+import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { follows, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { buildCursorResponse } from '../utils/pagination'
 
+// Tech filter threshold
+// 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
+const TECH_SCORE_THRESHOLD = 0.65
+
+// Extended schema with techOnly filter
+const feedQuerySchema = v.object({
+	...cursorPaginationQuerySchema.entries,
+	techOnly: v.optional(
+		v.pipe(
+			v.string(),
+			v.transform((s) => s === 'true'),
+		),
+	),
+})
+
 type Variables = {
 	db: Database
 	userId: string
 }
 
-export const feedRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
+// User's personalized feed (posts from followed feeds)
+export const userFeedRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-// Get personalized feed (posts from followed blogs) - cursor-based pagination
-feedRoute.get('/', vValidator('query', cursorPaginationQuerySchema), requireAuth, async (c) => {
-	const { cursor, limit } = c.req.valid('query')
+// Get personalized feed (posts from followed feeds) - cursor-based pagination
+userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async (c) => {
+	const { cursor, limit, techOnly } = c.req.valid('query')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	// Get followed blog IDs
+	// Get followed feed IDs
 	const userFollows = await db.query.follows.findMany({
 		where: eq(follows.userId, userId),
 	})
 
-	const blogIds = userFollows.map((f) => f.blogId)
+	const feedIds = userFollows.map((f) => f.feedId)
 
-	if (blogIds.length === 0) {
+	if (feedIds.length === 0) {
 		return c.json({
 			data: [],
 			meta: { nextCursor: null, hasMore: false },
 		})
 	}
 
-	// Get posts from followed blogs
-	const blogCondition = inArray(posts.blogId, blogIds)
+	// Get posts from followed feeds
+	const feedCondition = inArray(posts.feedId, feedIds)
 	const cursorCondition = cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined
+	const techCondition = techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined
+
+	const conditions = [feedCondition, cursorCondition, techCondition].filter(Boolean)
 
 	const result = await db.query.posts.findMany({
-		where: cursorCondition ? and(blogCondition, cursorCondition) : blogCondition,
+		where: conditions.length > 0 ? and(...conditions) : undefined,
 		limit: limit + 1,
 		orderBy: [desc(posts.publishedAt)],
-		with: { blog: true },
+		with: { feed: true },
 	})
 
 	return c.json(buildCursorResponse(result, limit))
 })
 
-// Get user's followed blogs
-feedRoute.get('/following', requireAuth, async (c) => {
+// Get user's followed feeds
+userFeedRoute.get('/following', requireAuth, async (c) => {
 	const db = c.get('db')
 	const userId = c.get('userId')
 
 	const userFollows = await db.query.follows.findMany({
 		where: eq(follows.userId, userId),
 		with: {
-			blog: true,
+			feed: true,
 		},
 	})
 
 	return c.json({
-		data: userFollows.map((f) => f.blog),
+		data: userFollows.map((f) => f.feed),
 	})
 })

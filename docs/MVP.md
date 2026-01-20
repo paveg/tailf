@@ -1,4 +1,4 @@
-# tailf.dev MVP
+# tailf MVP
 
 日本語技術ブログアグリゲーター
 

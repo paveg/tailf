@@ -1,11 +1,11 @@
 import { vValidator } from '@hono/valibot-validator'
-import { createBlogSchema } from '@tailf/shared'
+import { createFeedSchema } from '@tailf/shared'
 import { and, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { blogs, type FeedType, follows, posts } from '../db/schema'
+import { type FeedType, feeds, follows, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { fetchAndParseFeed } from '../services/rss'
 import { calculateTechScoreWithEmbedding } from '../services/tech-score'
@@ -43,10 +43,10 @@ type Variables = {
 	userId: string
 }
 
-export const blogsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
+export const feedsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-// Get all blogs with pagination
-blogsRoute.get(
+// Get all feeds with pagination
+feedsRoute.get(
 	'/',
 	vValidator(
 		'query',
@@ -60,10 +60,10 @@ blogsRoute.get(
 		const db = c.get('db')
 
 		const offset = (page - 1) * perPage
-		const result = await db.query.blogs.findMany({
+		const result = await db.query.feeds.findMany({
 			limit: perPage,
 			offset,
-			orderBy: [desc(blogs.createdAt)],
+			orderBy: [desc(feeds.createdAt)],
 			with: {
 				author: true,
 			},
@@ -76,14 +76,14 @@ blogsRoute.get(
 	},
 )
 
-// Get current user's registered blogs
-blogsRoute.get('/mine', requireAuth, async (c) => {
+// Get current user's registered feeds
+feedsRoute.get('/mine', requireAuth, async (c) => {
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	const result = await db.query.blogs.findMany({
-		where: eq(blogs.authorId, userId),
-		orderBy: [desc(blogs.createdAt)],
+	const result = await db.query.feeds.findMany({
+		where: eq(feeds.authorId, userId),
+		orderBy: [desc(feeds.createdAt)],
 		with: {
 			posts: {
 				limit: 1,
@@ -93,29 +93,29 @@ blogsRoute.get('/mine', requireAuth, async (c) => {
 	})
 
 	// Add post count
-	const blogsWithCount = await Promise.all(
-		result.map(async (blog) => {
+	const feedsWithCount = await Promise.all(
+		result.map(async (feed) => {
 			const postCount = await db.query.posts.findMany({
-				where: eq(posts.blogId, blog.id),
+				where: eq(posts.feedId, feed.id),
 				columns: { id: true },
 			})
 			return {
-				...blog,
+				...feed,
 				postCount: postCount.length,
 			}
 		}),
 	)
 
-	return c.json({ data: blogsWithCount })
+	return c.json({ data: feedsWithCount })
 })
 
-// Get single blog by ID
-blogsRoute.get('/:id', async (c) => {
+// Get single feed by ID
+feedsRoute.get('/:id', async (c) => {
 	const id = c.req.param('id')
 	const db = c.get('db')
 
-	const blog = await db.query.blogs.findFirst({
-		where: eq(blogs.id, id),
+	const feed = await db.query.feeds.findFirst({
+		where: eq(feeds.id, id),
 		with: {
 			author: true,
 			posts: {
@@ -125,15 +125,15 @@ blogsRoute.get('/:id', async (c) => {
 		},
 	})
 
-	if (!blog) {
-		return c.json({ error: 'Blog not found' }, 404)
+	if (!feed) {
+		return c.json({ error: 'Feed not found' }, 404)
 	}
 
-	return c.json({ data: blog })
+	return c.json({ data: feed })
 })
 
-// Get blog's posts
-blogsRoute.get(
+// Get feed's posts
+feedsRoute.get(
 	'/:id/posts',
 	vValidator(
 		'query',
@@ -148,8 +148,8 @@ blogsRoute.get(
 		const db = c.get('db')
 
 		const offset = (page - 1) * perPage
-		const blog = await db.query.blogs.findFirst({
-			where: eq(blogs.id, id),
+		const feed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, id),
 			with: {
 				posts: {
 					limit: perPage,
@@ -159,61 +159,63 @@ blogsRoute.get(
 			},
 		})
 
-		if (!blog) {
-			return c.json({ error: 'Blog not found' }, 404)
+		if (!feed) {
+			return c.json({ error: 'Feed not found' }, 404)
 		}
 
 		return c.json({
-			data: blog.posts,
+			data: feed.posts,
 			meta: { page, perPage },
 		})
 	},
 )
 
-// Register a new blog
-blogsRoute.post('/', vValidator('json', createBlogSchema), requireAuth, async (c) => {
+// Register a new feed
+feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c) => {
 	const { feedUrl: rawFeedUrl } = c.req.valid('json')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
 	// URL正規化
 	const feedUrl = normalizeUrl(rawFeedUrl)
-	console.log(`[Blog Register] Normalized URL: ${rawFeedUrl} -> ${feedUrl}`)
+	console.log(`[Feed Register] Normalized URL: ${rawFeedUrl} -> ${feedUrl}`)
 
 	try {
-		// Check if blog already exists
-		const existing = await db.query.blogs.findFirst({
-			where: eq(blogs.feedUrl, feedUrl),
+		// Check if feed already exists
+		const existing = await db.query.feeds.findFirst({
+			where: eq(feeds.feedUrl, feedUrl),
 		})
 
 		if (existing) {
-			return c.json({ error: 'Blog already registered', code: 'BLOG_EXISTS' }, 409)
+			return c.json({ error: 'Feed already registered', code: 'FEED_EXISTS' }, 409)
 		}
 
 		// Fetch and parse RSS feed
-		console.log(`[Blog Register] Fetching RSS: ${feedUrl}`)
-		const feed = await fetchAndParseFeed(feedUrl)
-		if (!feed) {
+		console.log(`[Feed Register] Fetching RSS: ${feedUrl}`)
+		const parsedFeed = await fetchAndParseFeed(feedUrl)
+		if (!parsedFeed) {
 			return c.json({ error: 'Failed to fetch or parse RSS feed', code: 'INVALID_FEED' }, 400)
 		}
-		console.log(`[Blog Register] Parsed feed: ${feed.title}, ${feed.items.length} items`)
+		console.log(
+			`[Feed Register] Parsed feed: ${parsedFeed.title}, ${parsedFeed.items.length} items`,
+		)
 
-		// Create blog with auto-detected type
+		// Create feed with auto-detected type
 		const feedType = detectFeedType(feedUrl)
-		const blogId = generateId()
-		await db.insert(blogs).values({
-			id: blogId,
-			title: feed.title,
-			description: feed.description,
+		const feedId = generateId()
+		await db.insert(feeds).values({
+			id: feedId,
+			title: parsedFeed.title,
+			description: parsedFeed.description,
 			feedUrl,
-			siteUrl: feed.link || feedUrl,
+			siteUrl: parsedFeed.link || feedUrl,
 			type: feedType,
 			authorId: userId,
 		})
-		console.log(`[Blog Register] Feed created: ${blogId} (type: ${feedType})`)
+		console.log(`[Feed Register] Feed created: ${feedId} (type: ${feedType})`)
 
 		// Insert posts from feed with embedding-based tech score
-		const filteredItems = feed.items.filter((item) => item.title && item.link)
+		const filteredItems = parsedFeed.items.filter((item) => item.title && item.link)
 		let importedCount = 0
 
 		for (const item of filteredItems) {
@@ -231,93 +233,93 @@ blogsRoute.post('/', vValidator('json', createBlogSchema), requireAuth, async (c
 						url: item.link,
 						thumbnailUrl: item.thumbnail,
 						publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
-						blogId,
+						feedId,
 						techScore,
 					})
 					.onConflictDoNothing()
 				importedCount++
 			} catch (e) {
-				console.warn(`[Blog Register] Skip post: ${item.link}`, e)
+				console.warn(`[Feed Register] Skip post: ${item.link}`, e)
 			}
 		}
 
 		if (importedCount > 0) {
-			console.log(`[Blog Register] Imported ${importedCount} posts with embedding scores`)
+			console.log(`[Feed Register] Imported ${importedCount} posts with embedding scores`)
 		}
 
-		// Return created blog with posts count
-		const blog = await db.query.blogs.findFirst({
-			where: eq(blogs.id, blogId),
+		// Return created feed with posts count
+		const createdFeed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
 			with: { author: true },
 		})
 
 		return c.json({
-			data: blog,
+			data: createdFeed,
 			meta: { postsImported: importedCount },
 		})
 	} catch (error) {
-		console.error('[Blog Register] Error:', error)
-		return c.json({ error: 'Failed to register blog', details: String(error) }, 500)
+		console.error('[Feed Register] Error:', error)
+		return c.json({ error: 'Failed to register feed', details: String(error) }, 500)
 	}
 })
 
-// Follow a blog
-blogsRoute.post('/:id/follow', requireAuth, async (c) => {
-	const blogId = c.req.param('id')
+// Follow a feed
+feedsRoute.post('/:id/follow', requireAuth, async (c) => {
+	const feedId = c.req.param('id')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
 	try {
-		await db.insert(follows).values({ userId, blogId }).onConflictDoNothing()
+		await db.insert(follows).values({ userId, feedId }).onConflictDoNothing()
 		return c.json({ success: true })
 	} catch {
 		return c.json({ error: 'Failed to follow' }, 500)
 	}
 })
 
-// Unfollow a blog
-blogsRoute.delete('/:id/follow', requireAuth, async (c) => {
-	const blogId = c.req.param('id')
+// Unfollow a feed
+feedsRoute.delete('/:id/follow', requireAuth, async (c) => {
+	const feedId = c.req.param('id')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	await db.delete(follows).where(and(eq(follows.userId, userId), eq(follows.blogId, blogId)))
+	await db.delete(follows).where(and(eq(follows.userId, userId), eq(follows.feedId, feedId)))
 	return c.json({ success: true })
 })
 
-// Delete a blog (only owner can delete)
-blogsRoute.delete('/:id', requireAuth, async (c) => {
-	const blogId = c.req.param('id')
+// Delete a feed (only owner can delete)
+feedsRoute.delete('/:id', requireAuth, async (c) => {
+	const feedId = c.req.param('id')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
 	try {
-		// Check if blog exists and user is owner
-		const blog = await db.query.blogs.findFirst({
-			where: eq(blogs.id, blogId),
+		// Check if feed exists and user is owner
+		const feed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
 		})
 
-		if (!blog) {
-			return c.json({ error: 'Blog not found' }, 404)
+		if (!feed) {
+			return c.json({ error: 'Feed not found' }, 404)
 		}
 
-		if (blog.authorId !== userId) {
-			return c.json({ error: 'You can only delete your own blogs' }, 403)
+		if (feed.authorId !== userId) {
+			return c.json({ error: 'You can only delete your own feeds' }, 403)
 		}
 
-		console.log(`[Blog Delete] Deleting blog: ${blogId}`)
+		console.log(`[Feed Delete] Deleting feed: ${feedId}`)
 
 		// Use batch for atomic delete (D1 doesn't support Drizzle transactions)
 		await db.batch([
-			db.delete(posts).where(eq(posts.blogId, blogId)),
-			db.delete(follows).where(eq(follows.blogId, blogId)),
-			db.delete(blogs).where(eq(blogs.id, blogId)),
+			db.delete(posts).where(eq(posts.feedId, feedId)),
+			db.delete(follows).where(eq(follows.feedId, feedId)),
+			db.delete(feeds).where(eq(feeds.id, feedId)),
 		])
 
-		console.log(`[Blog Delete] Blog deleted: ${blogId}`)
+		console.log(`[Feed Delete] Feed deleted: ${feedId}`)
 		return c.json({ success: true })
 	} catch (error) {
-		console.error('[Blog Delete] Error:', error)
-		return c.json({ error: 'Failed to delete blog', details: String(error) }, 500)
+		console.error('[Feed Delete] Error:', error)
+		return c.json({ error: 'Failed to delete feed', details: String(error) }, 500)
 	}
 })

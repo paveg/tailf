@@ -15,7 +15,8 @@ export const authRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 // GitHub OAuth login - redirect to GitHub
 authRoute.get('/github', (c) => {
 	const clientId = c.env.GITHUB_CLIENT_ID
-	const redirectUri = `${new URL(c.req.url).origin}/api/auth/github/callback`
+	const apiUrl = c.env.API_URL || new URL(c.req.url).origin
+	const redirectUri = `${apiUrl}/api/auth/github/callback`
 
 	const params = new URLSearchParams({
 		client_id: clientId,
@@ -58,7 +59,7 @@ authRoute.get('/github/callback', async (c) => {
 	const userResponse = await fetch('https://api.github.com/user', {
 		headers: {
 			Authorization: `Bearer ${tokenData.access_token}`,
-			'User-Agent': 'tailf.dev',
+			'User-Agent': 'tailf',
 		},
 	})
 
@@ -110,8 +111,7 @@ authRoute.get('/github/callback', async (c) => {
 	})
 
 	// Redirect to home
-	const frontendUrl =
-		c.env.ENVIRONMENT === 'production' ? 'https://tailf.dev' : 'http://localhost:4321'
+	const frontendUrl = c.env.APP_URL || 'http://localhost:4321'
 	return c.redirect(frontendUrl)
 })
 
