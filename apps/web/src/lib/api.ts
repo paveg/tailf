@@ -2,7 +2,7 @@
  * API client for tailf.dev backend
  */
 
-import type { ApiError, ApiResponse, Blog, Post, PostWithBlog, User } from '@tailf/shared'
+import type { ApiError, ApiResponse, Feed, Post, PostWithFeed, User } from '@tailf/shared'
 
 const API_BASE = '/api'
 
@@ -52,7 +52,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 	if (!response.ok) {
 		const error = (await response.json().catch(() => ({}))) as ApiError
 		throw new ApiClientError(
-			error.message || `Request failed: ${response.status}`,
+			error.message || error.error || `Request failed: ${response.status}`,
 			response.status,
 			error.error,
 		)
@@ -91,68 +91,101 @@ export interface CursorResponse<T> {
 export interface GetPostsParams {
 	cursor?: string
 	limit?: number
+	techOnly?: boolean
 }
 
 export async function getPosts(
 	params: GetPostsParams = {},
-): Promise<CursorResponse<PostWithBlog[]>> {
-	return fetchApi<CursorResponse<PostWithBlog[]>>(`/posts${buildQueryString(params)}`)
+): Promise<CursorResponse<PostWithFeed[]>> {
+	return fetchApi<CursorResponse<PostWithFeed[]>>(`/posts${buildQueryString(params)}`)
 }
 
 export interface SearchPostsParams {
 	q: string
 	cursor?: string
 	limit?: number
+	techOnly?: boolean
 }
 
 export async function searchPosts(
 	params: SearchPostsParams,
-): Promise<CursorResponse<PostWithBlog[]>> {
-	return fetchApi<CursorResponse<PostWithBlog[]>>(`/posts/search${buildQueryString(params)}`)
+): Promise<CursorResponse<PostWithFeed[]>> {
+	return fetchApi<CursorResponse<PostWithFeed[]>>(`/posts/search${buildQueryString(params)}`)
 }
 
 export async function getRankingPosts(
 	period: 'week' | 'month' = 'week',
 	limit = 20,
+	techOnly = false,
 ): Promise<ApiResponse<Post[]>> {
-	return fetchApi<ApiResponse<Post[]>>(`/posts/ranking${buildQueryString({ period, limit })}`)
+	return fetchApi<ApiResponse<Post[]>>(
+		`/posts/ranking${buildQueryString({ period, limit, techOnly })}`,
+	)
 }
 
 // ============================================================
-// Blogs
+// Feeds
 // ============================================================
 
-export interface GetBlogsParams {
+export interface GetFeedsParams {
 	page?: number
 	perPage?: number
 }
 
-export async function getBlogs(params: GetBlogsParams = {}): Promise<ApiResponse<Blog[]>> {
-	return fetchApi<ApiResponse<Blog[]>>(`/blogs${buildQueryString(params)}`)
+export async function getFeeds(params: GetFeedsParams = {}): Promise<ApiResponse<Feed[]>> {
+	return fetchApi<ApiResponse<Feed[]>>(`/feeds${buildQueryString(params)}`)
 }
 
-export async function getBlog(id: string): Promise<ApiResponse<Blog>> {
-	return fetchApi<ApiResponse<Blog>>(`/blogs/${id}`)
+export async function getFeedById(id: string): Promise<ApiResponse<Feed>> {
+	return fetchApi<ApiResponse<Feed>>(`/feeds/${id}`)
 }
 
-export async function followBlog(blogId: string): Promise<void> {
-	await fetchApi(`/blogs/${blogId}/follow`, { method: 'POST' })
+export interface RegisterFeedParams {
+	feedUrl: string
 }
 
-export async function unfollowBlog(blogId: string): Promise<void> {
-	await fetchApi(`/blogs/${blogId}/follow`, { method: 'DELETE' })
+export interface RegisterFeedResponse {
+	data: Feed
+	meta: { postsImported: number }
+}
+
+export async function registerFeed(params: RegisterFeedParams): Promise<RegisterFeedResponse> {
+	return fetchApi<RegisterFeedResponse>('/feeds', {
+		method: 'POST',
+		body: JSON.stringify(params),
+	})
+}
+
+export async function followFeed(feedId: string): Promise<void> {
+	await fetchApi(`/feeds/${feedId}/follow`, { method: 'POST' })
+}
+
+export async function unfollowFeed(feedId: string): Promise<void> {
+	await fetchApi(`/feeds/${feedId}/follow`, { method: 'DELETE' })
+}
+
+export interface FeedWithPostCount extends Feed {
+	postCount: number
+}
+
+export async function getMyFeeds(): Promise<ApiResponse<FeedWithPostCount[]>> {
+	return fetchApi<ApiResponse<FeedWithPostCount[]>>('/feeds/mine')
+}
+
+export async function deleteFeed(feedId: string): Promise<void> {
+	await fetchApi(`/feeds/${feedId}`, { method: 'DELETE' })
 }
 
 // ============================================================
-// Feed (authenticated, cursor-based pagination)
+// User Feed (authenticated, cursor-based pagination)
 // ============================================================
 
-export async function getFeed(
+export async function getUserFeed(
 	params: GetPostsParams = {},
-): Promise<CursorResponse<PostWithBlog[]>> {
-	return fetchApi<CursorResponse<PostWithBlog[]>>(`/feed${buildQueryString(params)}`)
+): Promise<CursorResponse<PostWithFeed[]>> {
+	return fetchApi<CursorResponse<PostWithFeed[]>>(`/feed${buildQueryString(params)}`)
 }
 
-export async function getFollowingBlogs(): Promise<ApiResponse<Blog[]>> {
-	return fetchApi<ApiResponse<Blog[]>>('/feed/following')
+export async function getFollowingFeeds(): Promise<ApiResponse<Feed[]>> {
+	return fetchApi<ApiResponse<Feed[]>>('/feed/following')
 }

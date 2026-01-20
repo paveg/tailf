@@ -1,14 +1,14 @@
 import * as v from 'valibot'
 
-// Blog registration schema
-export const createBlogSchema = v.object({
+// Feed registration schema
+export const createFeedSchema = v.object({
 	feedUrl: v.pipe(v.string(), v.url(), v.maxLength(2048)),
 	title: v.optional(v.pipe(v.string(), v.maxLength(255))),
 	description: v.optional(v.pipe(v.string(), v.maxLength(1000))),
 	siteUrl: v.optional(v.pipe(v.string(), v.url(), v.maxLength(2048))),
 })
 
-export type CreateBlogInput = v.InferInput<typeof createBlogSchema>
+export type CreateFeedInput = v.InferInput<typeof createFeedSchema>
 
 // Pagination schema (offset-based)
 export const paginationSchema = v.object({

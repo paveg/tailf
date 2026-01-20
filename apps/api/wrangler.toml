@@ -17,6 +17,10 @@ binding = "DB"
 database_name = "tailf-db"
 database_id = "63a1a02a-41b7-4a99-9f2d-874c1c7ad874"
 
+# Workers AI for embeddings (BGE-M3)
+[ai]
+binding = "AI"
+
 [vars]
 ENVIRONMENT = "development"
 APP_URL = "https://tailf.dev"

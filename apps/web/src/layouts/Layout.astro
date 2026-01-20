@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { UserMenu } from '../components/UserMenu'
+import { Toaster } from '../components/ui/sonner'
 
 interface Props {
 	title: string
@@ -68,15 +69,14 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 							記事一覧
 						</a>
 						<a href="/blogs" class="text-sm font-medium text-muted-foreground hover:text-foreground">
-							ブログ一覧
+							フィード一覧
 						</a>
 						<a href="/ranking" class="text-sm font-medium text-muted-foreground hover:text-foreground">
 							ランキング
 						</a>
 					</nav>
-					<div class="ml-auto flex items-center space-x-2">
-						<ThemeToggle client:load />
-						<slot name="header-actions" />
+					<div class="ml-auto">
+						<UserMenu client:load />
 					</div>
 				</div>
 			</header>
@@ -98,5 +98,6 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 				</div>
 			</footer>
 		</div>
+		<Toaster client:load position="top-right" />
 	</body>
 </html>

@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // Users table
 export const users = sqliteTable('users', {
@@ -15,15 +15,27 @@ export const users = sqliteTable('users', {
 		.$defaultFn(() => new Date()),
 })
 
-// Blogs table
-export const blogs = sqliteTable(
-	'blogs',
+// Feed types
+export const FEED_TYPES = ['blog', 'slide'] as const
+export type FeedType = (typeof FEED_TYPES)[number]
+
+// Feeds table (RSS/Atom feed sources: blogs, slides, etc.)
+// TODO: 将来的に公式フィード申請フローを実装する場合:
+// - feed_requests テーブルを追加（status: pending/approved/rejected）
+// - 管理画面で承認/却下
+// - 承認時に isOfficial: 1 で feeds に登録
+export const feeds = sqliteTable(
+	'feeds',
 	{
 		id: text('id').primaryKey(),
 		title: text('title').notNull(),
 		description: text('description'),
 		feedUrl: text('feed_url').notNull().unique(),
 		siteUrl: text('site_url').notNull(),
+		type: text('type').$type<FeedType>().notNull().default('blog'),
+		// 公式フィードフラグ（会社・組織の公式テックブログ等）
+		// 現在は GitHub Issue 経由で手動管理、将来的に申請フロー実装予定
+		isOfficial: integer('is_official', { mode: 'boolean' }).notNull().default(false),
 		authorId: text('author_id').references(() => users.id),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
@@ -32,7 +44,10 @@ export const blogs = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
-	(table) => [index('blogs_author_id_idx').on(table.authorId)],
+	(table) => [
+		index('feeds_author_id_idx').on(table.authorId),
+		index('feeds_type_idx').on(table.type),
+	],
 )
 
 // Posts table
@@ -45,34 +60,36 @@ export const posts = sqliteTable(
 		url: text('url').notNull().unique(),
 		thumbnailUrl: text('thumbnail_url'),
 		publishedAt: integer('published_at', { mode: 'timestamp' }).notNull(),
-		blogId: text('blog_id')
+		feedId: text('feed_id')
 			.notNull()
-			.references(() => blogs.id, { onDelete: 'cascade' }),
+			.references(() => feeds.id, { onDelete: 'cascade' }),
+		techScore: real('tech_score'), // 0.0〜1.0、技術記事度スコア（nullは未計算）
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
 	(table) => [
-		index('posts_blog_id_idx').on(table.blogId),
+		index('posts_feed_id_idx').on(table.feedId),
 		index('posts_published_at_idx').on(table.publishedAt),
+		index('posts_tech_score_idx').on(table.techScore),
 	],
 )
 
-// Follows table (many-to-many: users <-> blogs)
+// Follows table (many-to-many: users <-> feeds)
 export const follows = sqliteTable(
 	'follows',
 	{
 		userId: text('user_id')
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
-		blogId: text('blog_id')
+		feedId: text('feed_id')
 			.notNull()
-			.references(() => blogs.id, { onDelete: 'cascade' }),
+			.references(() => feeds.id, { onDelete: 'cascade' }),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.blogId] })],
+	(table) => [primaryKey({ columns: [table.userId, table.feedId] })],
 )
 
 // Sessions table (for authentication)
@@ -86,14 +103,14 @@ export const sessions = sqliteTable('sessions', {
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
-	blogs: many(blogs),
+	feeds: many(feeds),
 	follows: many(follows),
 	sessions: many(sessions),
 }))
 
-export const blogsRelations = relations(blogs, ({ one, many }) => ({
+export const feedsRelations = relations(feeds, ({ one, many }) => ({
 	author: one(users, {
-		fields: [blogs.authorId],
+		fields: [feeds.authorId],
 		references: [users.id],
 	}),
 	posts: many(posts),
@@ -101,9 +118,9 @@ export const blogsRelations = relations(blogs, ({ one, many }) => ({
 }))
 
 export const postsRelations = relations(posts, ({ one }) => ({
-	blog: one(blogs, {
-		fields: [posts.blogId],
-		references: [blogs.id],
+	feed: one(feeds, {
+		fields: [posts.feedId],
+		references: [feeds.id],
 	}),
 }))
 
@@ -112,9 +129,9 @@ export const followsRelations = relations(follows, ({ one }) => ({
 		fields: [follows.userId],
 		references: [users.id],
 	}),
-	blog: one(blogs, {
-		fields: [follows.blogId],
-		references: [blogs.id],
+	feed: one(feeds, {
+		fields: [follows.feedId],
+		references: [feeds.id],
 	}),
 }))
 

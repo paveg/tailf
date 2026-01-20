@@ -1,49 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import { PostCard } from '../components/PostCard'
+import { RecentPosts } from '../components/RecentPosts'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card'
+import { fetchAllPostsForSSG } from '../lib/server-api'
 
-// This page uses ISR - regenerates every hour
 export const prerender = true
 
-// In production, fetch from API
-// For now, use placeholder data
-const recentPosts = [
-	{
-		id: '1',
-		title: 'Next.js 15の新機能を徹底解説',
-		url: 'https://example.com/nextjs-15',
-		publishedAt: new Date('2025-01-15'),
-		blog: {
-			title: 'Dev Blog',
-			siteUrl: 'https://example.com',
-			author: { name: 'tanaka', avatarUrl: 'https://github.com/tanaka.png' },
-		},
-	},
-	{
-		id: '2',
-		title: 'TypeScript 5.7の型推論改善',
-		url: 'https://example.com/typescript-57',
-		publishedAt: new Date('2025-01-14'),
-		blog: {
-			title: 'Tech Notes',
-			siteUrl: 'https://example.com',
-			author: { name: 'suzuki', avatarUrl: 'https://github.com/suzuki.png' },
-		},
-	},
-	{
-		id: '3',
-		title: 'Cloudflare Workers入門',
-		url: 'https://example.com/cf-workers',
-		publishedAt: new Date('2025-01-13'),
-		blog: {
-			title: 'Cloud Tech',
-			siteUrl: 'https://example.com',
-			author: { name: 'yamada', avatarUrl: 'https://github.com/yamada.png' },
-		},
-	},
-]
+// SSG: ビルド時に取得（SEO用）、開発環境では空になる可能性あり
+const allPosts = await fetchAllPostsForSSG()
+const initialPosts = allPosts.slice(0, 6)
 ---
 
 <Layout title="ホーム">
@@ -68,18 +34,14 @@ const recentPosts = [
 					すべて見る →
 				</a>
 			</div>
-			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{recentPosts.map((post) => (
-					<PostCard post={post} />
-				))}
-			</div>
+			<RecentPosts client:load initialPosts={initialPosts} />
 		</section>
 
 		<!-- CTA Section -->
 		<Card className="mt-12 text-center">
 			<CardHeader>
 				<CardTitle className="text-lg whitespace-nowrap sm:text-xl md:text-2xl">
-					あなたのブログを登録しませんか？
+					あなたのフィードを登録しませんか？
 				</CardTitle>
 				<CardDescription className="text-xs whitespace-nowrap sm:text-sm">
 					RSSフィードがあれば、すぐに登録できます。
