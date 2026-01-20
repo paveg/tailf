@@ -13,11 +13,11 @@
 | 機能 | 説明 | 状態 |
 |------|------|------|
 | GitHub OAuth | ログイン/ログアウト | ✅ API実装済み |
-| ブログ登録 | RSS URLでブログを登録 | ⬜ UI未実装 |
-| 新着記事 | 登録ブログの最新記事を表示 | ⬜ 実データ接続未 |
-| ランキング | 人気ブログ/記事のランキング | ⬜ 実データ接続未 |
+| フィード登録 | RSS URLでフィードを登録 | ⬜ UI未実装 |
+| 新着記事 | 登録フィードの最新記事を表示 | ⬜ 実データ接続未 |
+| ランキング | 人気フィード/記事のランキング | ⬜ 実データ接続未 |
 | RSSフィード取得 | Cronで定期的にRSSを取得 | ✅ 実装済み |
-| ユーザースタッツ | 登録ブログ数、フォロー数など | ⬜ 未実装 |
+| ユーザースタッツ | 登録フィード数、フォロー数など | ⬜ 未実装 |
 
 ### 後回し機能（v1.x）
 
@@ -26,7 +26,7 @@
 | 全文検索 | D1 FTSでキーワード検索 | 中 |
 | AIセマンティック検索 | Vectorize + Workers AIで意味検索 | 低 |
 | トピックフィルター | #frontend, #backend などのタグ | 中 |
-| フォロー機能 | ブログをフォローしてフィード作成 | 中 |
+| フォロー機能 | フィードをフォローしてタイムライン作成 | 中 |
 | いいね/ブックマーク | 記事を保存 | 低 |
 
 ## 技術スタック
@@ -57,7 +57,7 @@ users
 ├── avatarUrl
 └── createdAt
 
-blogs
+feeds
 ├── id
 ├── title
 ├── feedUrl (RSS)
@@ -71,12 +71,12 @@ posts
 ├── summary
 ├── url
 ├── publishedAt
-├── blogId → blogs.id
+├── feedId → feeds.id
 └── createdAt
 
 follows
 ├── userId → users.id
-├── blogId → blogs.id
+├── feedId → feeds.id
 └── createdAt
 
 sessions
@@ -91,7 +91,7 @@ sessions
 |------|------|
 | `/` | ホーム（新着記事） |
 | `/posts` | 新着記事一覧 |
-| `/blogs` | ブログ一覧 |
+| `/blogs` | フィード一覧 |
 | `/ranking` | ランキング |
 | `/terms` | 利用規約 |
 | `/privacy` | プライバシーポリシー |
@@ -104,8 +104,8 @@ sessions
 | GET | `/api/auth/callback` | OAuth コールバック |
 | GET | `/api/auth/me` | 現在のユーザー取得 |
 | POST | `/api/auth/logout` | ログアウト |
-| GET | `/api/blogs` | ブログ一覧 |
-| POST | `/api/blogs` | ブログ登録 |
+| GET | `/api/feeds` | フィード一覧 |
+| POST | `/api/feeds` | フィード登録 |
 | GET | `/api/posts` | 記事一覧 |
 | GET | `/api/feed` | フィード取得 |
 
@@ -127,5 +127,5 @@ SESSION_SECRET=xxx
 
 1. AIによる記事要約（TL;DR）
 2. 週間/月間ダイジェストメール
-3. RSSフィード出力（自分のフォローブログ）
+3. RSSフィード出力（自分のフォローフィード）
 4. ブログ作者へのスポンサー機能
