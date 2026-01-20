@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://tailf.pages.dev/sitemap-index.xml
+Sitemap: https://tailf.pavegy.workers.dev/sitemap-index.xml
