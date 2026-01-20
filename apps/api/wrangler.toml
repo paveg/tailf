@@ -10,6 +10,7 @@ not_found_handling = "single-page-application"
 
 [dev]
 port = 8788
+ip = "0.0.0.0"
 
 [[d1_databases]]
 binding = "DB"

@@ -4,17 +4,13 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { sessions, users } from '../db/schema'
+import { generateId } from '../utils/id'
 
 type Variables = {
 	db: Database
 }
 
 export const authRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
-
-// Generate random ID
-function generateId(): string {
-	return crypto.randomUUID()
-}
 
 // GitHub OAuth login - redirect to GitHub
 authRoute.get('/github', (c) => {

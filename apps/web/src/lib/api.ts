@@ -7,6 +7,20 @@ import type { ApiError, ApiResponse, Blog, Post, PostWithBlog, User } from '@tai
 const API_BASE = '/api'
 
 /**
+ * Build query string from params object, filtering out undefined/null values
+ */
+function buildQueryString(params: Record<string, unknown>): string {
+	const searchParams = new URLSearchParams()
+	for (const [key, value] of Object.entries(params)) {
+		if (value !== undefined && value !== null) {
+			searchParams.set(key, String(value))
+		}
+	}
+	const query = searchParams.toString()
+	return query ? `?${query}` : ''
+}
+
+/**
  * Custom API error
  */
 export class ApiClientError extends Error {
@@ -61,46 +75,47 @@ export async function logout(): Promise<void> {
 }
 
 // ============================================================
-// Posts
+// Posts (cursor-based pagination)
 // ============================================================
 
-export interface GetPostsParams {
-	page?: number
-	perPage?: number
+export interface CursorMeta {
+	nextCursor: string | null
+	hasMore: boolean
 }
 
-export async function getPosts(params: GetPostsParams = {}): Promise<ApiResponse<PostWithBlog[]>> {
-	const searchParams = new URLSearchParams()
-	if (params.page) searchParams.set('page', String(params.page))
-	if (params.perPage) searchParams.set('perPage', String(params.perPage))
+export interface CursorResponse<T> {
+	data: T
+	meta: CursorMeta
+}
 
-	const query = searchParams.toString()
-	return fetchApi<ApiResponse<PostWithBlog[]>>(`/posts${query ? `?${query}` : ''}`)
+export interface GetPostsParams {
+	cursor?: string
+	limit?: number
+}
+
+export async function getPosts(
+	params: GetPostsParams = {},
+): Promise<CursorResponse<PostWithBlog[]>> {
+	return fetchApi<CursorResponse<PostWithBlog[]>>(`/posts${buildQueryString(params)}`)
 }
 
 export interface SearchPostsParams {
 	q: string
-	page?: number
-	perPage?: number
+	cursor?: string
+	limit?: number
 }
 
-export async function searchPosts(params: SearchPostsParams): Promise<ApiResponse<Post[]>> {
-	const searchParams = new URLSearchParams({ q: params.q })
-	if (params.page) searchParams.set('page', String(params.page))
-	if (params.perPage) searchParams.set('perPage', String(params.perPage))
-
-	return fetchApi<ApiResponse<Post[]>>(`/posts/search?${searchParams}`)
+export async function searchPosts(
+	params: SearchPostsParams,
+): Promise<CursorResponse<PostWithBlog[]>> {
+	return fetchApi<CursorResponse<PostWithBlog[]>>(`/posts/search${buildQueryString(params)}`)
 }
 
 export async function getRankingPosts(
 	period: 'week' | 'month' = 'week',
 	limit = 20,
 ): Promise<ApiResponse<Post[]>> {
-	const searchParams = new URLSearchParams({
-		period,
-		limit: String(limit),
-	})
-	return fetchApi<ApiResponse<Post[]>>(`/posts/ranking?${searchParams}`)
+	return fetchApi<ApiResponse<Post[]>>(`/posts/ranking${buildQueryString({ period, limit })}`)
 }
 
 // ============================================================
@@ -113,12 +128,7 @@ export interface GetBlogsParams {
 }
 
 export async function getBlogs(params: GetBlogsParams = {}): Promise<ApiResponse<Blog[]>> {
-	const searchParams = new URLSearchParams()
-	if (params.page) searchParams.set('page', String(params.page))
-	if (params.perPage) searchParams.set('perPage', String(params.perPage))
-
-	const query = searchParams.toString()
-	return fetchApi<ApiResponse<Blog[]>>(`/blogs${query ? `?${query}` : ''}`)
+	return fetchApi<ApiResponse<Blog[]>>(`/blogs${buildQueryString(params)}`)
 }
 
 export async function getBlog(id: string): Promise<ApiResponse<Blog>> {
@@ -134,16 +144,13 @@ export async function unfollowBlog(blogId: string): Promise<void> {
 }
 
 // ============================================================
-// Feed (authenticated)
+// Feed (authenticated, cursor-based pagination)
 // ============================================================
 
-export async function getFeed(params: GetPostsParams = {}): Promise<ApiResponse<Post[]>> {
-	const searchParams = new URLSearchParams()
-	if (params.page) searchParams.set('page', String(params.page))
-	if (params.perPage) searchParams.set('perPage', String(params.perPage))
-
-	const query = searchParams.toString()
-	return fetchApi<ApiResponse<Post[]>>(`/feed${query ? `?${query}` : ''}`)
+export async function getFeed(
+	params: GetPostsParams = {},
+): Promise<CursorResponse<PostWithBlog[]>> {
+	return fetchApi<CursorResponse<PostWithBlog[]>>(`/feed${buildQueryString(params)}`)
 }
 
 export async function getFollowingBlogs(): Promise<ApiResponse<Blog[]>> {
