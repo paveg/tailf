@@ -44,7 +44,7 @@ function MyFeedsContent() {
 					</div>
 					<h2 className="mb-2 text-xl font-semibold">フィードを登録しよう</h2>
 					<p className="mx-auto mb-6 max-w-sm text-muted-foreground">
-						GitHubでログインすると、あなたの技術ブログやスライドをtailf.devに登録できます
+						GitHubでログインすると、あなたの技術ブログやスライドをtailfに登録できます
 					</p>
 					<Button asChild size="lg" className="gap-2">
 						<a href="/api/auth/github">

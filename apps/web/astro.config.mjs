@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'astro/config'
 
 export default defineConfig({
-	site: 'https://tailf.dev',
+	site: 'https://tailf.pages.dev',
 	output: 'static',
 	build: {
 		assets: 'assets',

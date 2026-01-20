@@ -59,7 +59,7 @@ authRoute.get('/github/callback', async (c) => {
 	const userResponse = await fetch('https://api.github.com/user', {
 		headers: {
 			Authorization: `Bearer ${tokenData.access_token}`,
-			'User-Agent': 'tailf.dev',
+			'User-Agent': 'tailf',
 		},
 	})
 

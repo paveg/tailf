@@ -1,5 +1,5 @@
 /**
- * API client for tailf.dev backend
+ * API client for tailf backend
  */
 
 import type { ApiError, ApiResponse, Feed, Post, PostWithFeed, User } from '@tailf/shared'

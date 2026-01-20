@@ -1,5 +1,5 @@
 /**
- * TanStack Query hooks for tailf.dev
+ * TanStack Query hooks for tailf
  */
 import type { PostWithFeed } from '@tailf/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

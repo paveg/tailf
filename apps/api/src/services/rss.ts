@@ -160,7 +160,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 			const response = await fetch(feed.feedUrl, {
 				headers: {
-					'User-Agent': 'tailf.dev RSS Aggregator',
+					'User-Agent': 'tailf RSS Aggregator',
 				},
 			})
 
@@ -215,7 +215,7 @@ export async function fetchAndParseFeed(feedUrl: string): Promise<RssFeed | null
 	try {
 		const response = await fetch(feedUrl, {
 			headers: {
-				'User-Agent': 'tailf.dev RSS Aggregator',
+				'User-Agent': 'tailf RSS Aggregator',
 			},
 		})
 

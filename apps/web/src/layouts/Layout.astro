@@ -32,20 +32,20 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 		</script>
 
 		<!-- SEO -->
-		<title>{title} | tailf.dev</title>
+		<title>{title} | tailf</title>
 		<meta name="description" content={description} />
 
 		<!-- OGP -->
-		<meta property="og:title" content={`${title} | tailf.dev`} />
+		<meta property="og:title" content={`${title} | tailf`} />
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonicalUrl} />
-		<meta property="og:site_name" content="tailf.dev" />
+		<meta property="og:site_name" content="tailf" />
 		<meta property="og:locale" content="ja_JP" />
 
 		<!-- Twitter Card -->
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content={`${title} | tailf.dev`} />
+		<meta name="twitter:title" content={`${title} | tailf`} />
 		<meta name="twitter:description" content={description} />
 
 		<!-- Fonts -->

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-tailf.dev is a Japanese developer blog aggregator. The name comes from `tail -f`, the Unix command for following file changes in real-time.
+tailf is a Japanese developer blog aggregator. The name comes from `tail -f`, the Unix command for following file changes in real-time.
 
 ## Commands
 

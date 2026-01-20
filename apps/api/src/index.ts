@@ -31,8 +31,8 @@ app.use(
 	'*',
 	cors({
 		origin: (origin) => {
-			// Allow localhost and tailf.dev
-			if (origin.includes('localhost') || origin.includes('tailf.dev')) {
+			// Allow localhost and tailf
+			if (origin.includes('localhost') || origin.includes('tailf')) {
 				return origin
 			}
 			return null
