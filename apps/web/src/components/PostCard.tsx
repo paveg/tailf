@@ -55,14 +55,12 @@ export function PostCard({ post }: PostCardProps) {
 									{formatDate(post.publishedAt)}
 								</time>
 							</div>
-							{bookmarkCount > 0 && (
-								<div
-									className={`flex items-center gap-1 ${isPopular ? 'text-orange-500 dark:text-orange-400' : ''}`}
-								>
-									<HatenaBookmarkIcon className="size-3" />
-									<span className={isPopular ? 'font-medium' : ''}>{bookmarkCount}</span>
-								</div>
-							)}
+							<div
+								className={`flex items-center gap-1 ${isPopular ? 'text-orange-500 dark:text-orange-400' : ''}`}
+							>
+								<HatenaBookmarkIcon className="size-3" />
+								<span className={isPopular ? 'font-medium' : ''}>{bookmarkCount}</span>
+							</div>
 						</div>
 					</div>
 					<CardTitle className="line-clamp-2 text-base leading-snug group-hover:text-primary break-keep">

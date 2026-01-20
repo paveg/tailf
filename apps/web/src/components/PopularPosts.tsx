@@ -70,12 +70,10 @@ function RankingCard({ post, rank }: RankingCardProps) {
 							</div>
 
 							{/* Hatena Bookmark Count */}
-							{post.hatenaBookmarkCount != null && post.hatenaBookmarkCount > 0 && (
-								<div className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
-									<HatenaBookmarkIcon className="size-3" />
-									<span>{post.hatenaBookmarkCount}</span>
-								</div>
-							)}
+							<div className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+								<HatenaBookmarkIcon className="size-3" />
+								<span>{post.hatenaBookmarkCount ?? 0}</span>
+							</div>
 						</div>
 
 						<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
