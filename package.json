@@ -12,6 +12,7 @@
 		"build": "pnpm --filter @tailf/web build",
 		"build:prod": "pnpm db:migrate:prod && pnpm build",
 		"deploy": "pnpm --filter @tailf/api run deploy",
+		"deploy:web": "pnpm --filter @tailf/web run deploy",
 		"db:generate": "pnpm --filter @tailf/api db:generate",
 		"db:migrate:local": "pnpm --filter @tailf/api db:migrate:local",
 		"db:migrate:prod": "pnpm --filter @tailf/api db:migrate:prod",

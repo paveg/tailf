@@ -152,7 +152,7 @@ function UserMenuContent() {
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild className="cursor-pointer">
-					<a href="/mypage/blogs">
+					<a href="/mypage/feeds">
 						<Rss className="mr-2 size-4" />
 						マイフィード
 					</a>

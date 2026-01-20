@@ -37,21 +37,45 @@ import Layout from '../layouts/Layout.astro'
 			</section>
 
 			<section>
-				<h2 class="mb-3 text-xl font-semibold text-foreground">4. Cookieの使用</h2>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">4. アクセス解析ツールの利用</h2>
+				<p>本サービスでは、以下のアクセス解析ツールを利用しています：</p>
+				<ul class="list-disc pl-6 space-y-2 mt-2">
+					<li>
+						<strong>Cloudflare Web Analytics</strong><br />
+						<span class="text-sm">
+							サービスの利用状況を把握するために使用しています。
+							Cloudflare Web AnalyticsはCookieを使用せず、個人を特定する情報を収集しません。
+							詳細は<a href="https://www.cloudflare.com/ja-jp/privacypolicy/" class="text-primary hover:underline" target="_blank" rel="noopener">Cloudflareのプライバシーポリシー</a>をご覧ください。
+						</span>
+					</li>
+					<li>
+						<strong>Google Search Console</strong><br />
+						<span class="text-sm">
+							検索エンジンからのアクセス状況を把握し、サービスの改善に役立てています。
+							Google Search Consoleは検索クエリやクリック数などの集計データを提供しますが、個人を特定する情報は含まれません。
+							詳細は<a href="https://policies.google.com/privacy" class="text-primary hover:underline" target="_blank" rel="noopener">Googleのプライバシーポリシー</a>をご覧ください。
+						</span>
+					</li>
+				</ul>
+			</section>
+
+			<section>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">5. Cookieの使用</h2>
 				<p>
 					本サービスでは、ユーザー認証とテーマ設定の保存のためにCookieおよびlocalStorageを使用します。
+					なお、Cloudflare Web AnalyticsはCookieを使用しないプライバシー重視の解析ツールです。
 				</p>
 			</section>
 
 			<section>
-				<h2 class="mb-3 text-xl font-semibold text-foreground">5. データの保管</h2>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">6. データの保管</h2>
 				<p>
 					データはCloudflareのインフラストラクチャ上で安全に保管されます。
 				</p>
 			</section>
 
 			<section>
-				<h2 class="mb-3 text-xl font-semibold text-foreground">6. お問い合わせ</h2>
+				<h2 class="mb-3 text-xl font-semibold text-foreground">7. お問い合わせ</h2>
 				<p>
 					プライバシーに関するお問い合わせは、
 					<a href="https://github.com/paveg/tailf/issues" class="text-primary hover:underline" target="_blank" rel="noopener">
