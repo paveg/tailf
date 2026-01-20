@@ -53,14 +53,23 @@ feedsRoute.get(
 		v.object({
 			page: v.optional(v.pipe(v.string(), v.transform(Number)), '1'),
 			perPage: v.optional(v.pipe(v.string(), v.transform(Number)), '20'),
+			official: v.optional(
+				v.pipe(
+					v.string(),
+					v.transform((s) => s === 'true'),
+				),
+			),
 		}),
 	),
 	async (c) => {
-		const { page, perPage } = c.req.valid('query')
+		const { page, perPage, official } = c.req.valid('query')
 		const db = c.get('db')
 
 		const offset = (page - 1) * perPage
+		const officialCondition = official !== undefined ? eq(feeds.isOfficial, official) : undefined
+
 		const result = await db.query.feeds.findMany({
+			where: officialCondition,
 			limit: perPage,
 			offset,
 			orderBy: [desc(feeds.createdAt)],
