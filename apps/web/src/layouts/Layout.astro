@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css'
+import { MobileNav } from '../components/MobileNav'
 import { UserMenu } from '../components/UserMenu'
 import { Toaster } from '../components/ui/sonner'
 
@@ -90,7 +91,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 						</a>
 						-->
 					</nav>
-					<div class="ml-auto">
+					<div class="ml-auto flex items-center gap-2">
+						<MobileNav client:load />
 						<UserMenu client:load />
 					</div>
 				</div>
