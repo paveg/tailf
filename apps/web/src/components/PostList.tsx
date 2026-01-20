@@ -14,11 +14,12 @@
  * - visibleCount/filteredPosts のロジックを削除
  */
 import type { PostWithFeed } from '@tailf/shared'
-import { Code2 } from 'lucide-react'
+import { Building2, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useInfinitePosts, useInfiniteSearchPosts } from '@/lib/hooks'
 import { useDebounce } from '@/lib/useDebounce'
 import { useIntersectionObserver } from '@/lib/useIntersectionObserver'
+import { useBooleanQueryParam } from '@/lib/useQueryParams'
 import { PostCard } from './PostCard'
 import { QueryProvider } from './QueryProvider'
 import { SearchInput } from './SearchInput'
@@ -35,7 +36,8 @@ interface PostListContentProps {
 
 function PostListContent({ allPosts }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
-	const [techOnly, setTechOnly] = useState(true)
+	const [techOnly, setTechOnly] = useBooleanQueryParam('tech', true)
+	const [officialOnly, setOfficialOnly] = useBooleanQueryParam('official', false)
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
 
@@ -43,10 +45,11 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 	// SSGデータがない場合（開発環境）はAPIから取得
 	const useClientFetch = allPosts.length === 0
-	const apiQuery = useInfinitePosts(12, techOnly)
+	const official = officialOnly ? true : undefined
+	const apiQuery = useInfinitePosts(12, techOnly, official)
 
 	// Search uses API (can't pre-build search results)
-	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly)
+	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly, official)
 
 	// APIから取得した記事（開発環境用）
 	const apiPosts = useMemo(() => {
@@ -116,10 +119,10 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	])
 
 	// Reset visible count when filter changes
-	// biome-ignore lint/correctness/useExhaustiveDependencies: techOnly is intentionally a trigger to reset pagination
+	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
 	useEffect(() => {
 		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly])
+	}, [techOnly, officialOnly])
 
 	// Determine which posts to show
 	const displayPosts = isSearching
@@ -137,7 +140,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 	return (
 		<div className="space-y-6">
-			{/* Search Input and Filter */}
+			{/* Search Input and Filters */}
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex-1">
 					<SearchInput
@@ -146,12 +149,24 @@ function PostListContent({ allPosts }: PostListContentProps) {
 						isLoading={showSearchLoading}
 					/>
 				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<Switch id="tech-only" checked={techOnly} onCheckedChange={setTechOnly} />
-					<Label htmlFor="tech-only" className="flex cursor-pointer items-center gap-1.5 text-sm">
-						<Code2 className="size-4" />
-						技術記事のみ
-					</Label>
+				<div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+					<div className="flex items-center gap-2">
+						<Switch id="tech-only" checked={techOnly} onCheckedChange={setTechOnly} />
+						<Label htmlFor="tech-only" className="flex cursor-pointer items-center gap-1.5 text-sm">
+							<Code2 className="size-4" />
+							技術記事
+						</Label>
+					</div>
+					<div className="flex items-center gap-2">
+						<Switch id="official-only" checked={officialOnly} onCheckedChange={setOfficialOnly} />
+						<Label
+							htmlFor="official-only"
+							className="flex cursor-pointer items-center gap-1.5 text-sm"
+						>
+							<Building2 className="size-4" />
+							企業ブログ
+						</Label>
+					</div>
 				</div>
 			</div>
 
