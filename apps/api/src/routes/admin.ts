@@ -8,6 +8,7 @@ import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
+import { decodeHtmlEntities } from '../services/rss'
 
 type Variables = {
 	db: Database
@@ -89,5 +90,49 @@ adminRoute.post('/bookmarks/update', async (c) => {
 		updated,
 		remaining: postsToUpdate.length - updated,
 		errors: errors.length > 0 ? errors : undefined,
+	})
+})
+
+// POST /admin/posts/fix-entities - Fix HTML entities in post titles and summaries
+adminRoute.post('/posts/fix-entities', async (c) => {
+	const db = c.get('db')
+
+	// Get all posts
+	const allPosts = await db.query.posts.findMany({
+		columns: { id: true, title: true, summary: true },
+	})
+
+	let updated = 0
+	const fixed: string[] = []
+
+	// Check for posts with HTML entities
+	const entityPattern = /&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);/
+
+	for (const post of allPosts) {
+		const titleHasEntities = entityPattern.test(post.title)
+		const summaryHasEntities = post.summary && entityPattern.test(post.summary)
+
+		if (titleHasEntities || summaryHasEntities) {
+			const newTitle = decodeHtmlEntities(post.title)
+			const newSummary = post.summary ? decodeHtmlEntities(post.summary) : null
+
+			await db
+				.update(posts)
+				.set({
+					title: newTitle,
+					summary: newSummary,
+				})
+				.where(eq(posts.id, post.id))
+
+			updated++
+			fixed.push(`${post.title} → ${newTitle}`)
+		}
+	}
+
+	return c.json({
+		message: `Fixed HTML entities in ${updated} posts`,
+		updated,
+		total: allPosts.length,
+		fixed: fixed.length > 0 ? fixed.slice(0, 20) : undefined, // Show first 20 for reference
 	})
 })

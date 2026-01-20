@@ -13,6 +13,23 @@ interface RssItem {
 	thumbnail?: string
 }
 
+/**
+ * Decode HTML entities in a string
+ * Handles common entities: &amp; &lt; &gt; &quot; &apos; and numeric entities
+ */
+export function decodeHtmlEntities(text: string): string {
+	return text
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"')
+		.replace(/&apos;/g, "'")
+		.replace(/&#39;/g, "'")
+		.replace(/&#x27;/g, "'")
+		.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+		.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+}
+
 export interface RssFeed {
 	title: string
 	description?: string
@@ -60,10 +77,11 @@ function parseRss(xml: string): RssFeed | null {
 					thumbnail = mediaMatch[1]
 				}
 
+				const description = getTagContent('description', itemContent)
 				items.push({
-					title,
+					title: decodeHtmlEntities(title),
 					link,
-					description: getTagContent('description', itemContent),
+					description: description ? decodeHtmlEntities(description) : undefined,
 					pubDate: getTagContent('pubDate', itemContent),
 					thumbnail,
 				})
@@ -110,11 +128,12 @@ function parseAtom(xml: string): RssFeed | null {
 			const itemLink = getLinkHref(entryContent)
 
 			if (itemTitle && itemLink) {
+				const itemDescription =
+					getTagContent('summary', entryContent) || getTagContent('content', entryContent)
 				items.push({
-					title: itemTitle,
+					title: decodeHtmlEntities(itemTitle),
 					link: itemLink,
-					description:
-						getTagContent('summary', entryContent) || getTagContent('content', entryContent),
+					description: itemDescription ? decodeHtmlEntities(itemDescription) : undefined,
 					pubDate:
 						getTagContent('published', entryContent) || getTagContent('updated', entryContent),
 				})
