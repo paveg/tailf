@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { posts } from '../db/schema'
+import { generateId } from '../utils/id'
 
 interface RssItem {
 	title: string
@@ -130,10 +131,6 @@ function parseFeed(xml: string): RssFeed | null {
 		return parseAtom(xml)
 	}
 	return parseRss(xml)
-}
-
-function generateId(): string {
-	return crypto.randomUUID()
 }
 
 export async function fetchRssFeeds(db: Database): Promise<void> {

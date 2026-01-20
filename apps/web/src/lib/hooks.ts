@@ -1,7 +1,8 @@
 /**
  * TanStack Query hooks for tailf.dev
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { CursorResponse } from './api'
 import {
 	followBlog,
 	type GetBlogsParams,
@@ -19,12 +20,29 @@ import {
 	unfollowBlog,
 } from './api'
 
+/**
+ * Factory for creating cursor-based infinite query hooks.
+ */
+function createCursorInfiniteQuery<T>(
+	queryKey: readonly unknown[],
+	queryFn: (cursor?: string) => Promise<CursorResponse<T[]>>,
+	options?: { enabled?: boolean },
+) {
+	return useInfiniteQuery({
+		queryKey,
+		queryFn: ({ pageParam }) => queryFn(pageParam),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+		...options,
+	})
+}
+
 // Query keys
 export const queryKeys = {
 	posts: {
 		all: ['posts'] as const,
-		list: (params?: GetPostsParams) => ['posts', 'list', params] as const,
-		search: (params: SearchPostsParams) => ['posts', 'search', params] as const,
+		list: (limit?: number) => ['posts', 'list', { limit }] as const,
+		search: (q: string, limit?: number) => ['posts', 'search', { q, limit }] as const,
 		ranking: (period: 'week' | 'month', limit: number) =>
 			['posts', 'ranking', period, limit] as const,
 	},
@@ -37,22 +55,37 @@ export const queryKeys = {
 		current: ['user', 'current'] as const,
 	},
 	feed: {
-		posts: (params?: GetPostsParams) => ['feed', 'posts', params] as const,
+		posts: (limit?: number) => ['feed', 'posts', { limit }] as const,
 		following: ['feed', 'following'] as const,
 	},
 }
 
-// Posts
+// Posts - Infinite scroll with cursor-based pagination
+export function useInfinitePosts(limit = 12) {
+	return createCursorInfiniteQuery(queryKeys.posts.list(limit), (cursor) =>
+		getPosts({ cursor, limit }),
+	)
+}
+
+export function useInfiniteSearchPosts(q: string, limit = 12) {
+	return createCursorInfiniteQuery(
+		queryKeys.posts.search(q, limit),
+		(cursor) => searchPosts({ q, cursor, limit }),
+		{ enabled: q.length >= 2 },
+	)
+}
+
+// Legacy hooks for backward compatibility
 export function usePosts(params?: GetPostsParams) {
 	return useQuery({
-		queryKey: queryKeys.posts.list(params),
+		queryKey: ['posts', 'legacy', params],
 		queryFn: () => getPosts(params),
 	})
 }
 
 export function useSearchPosts(params: SearchPostsParams) {
 	return useQuery({
-		queryKey: queryKeys.posts.search(params),
+		queryKey: ['posts', 'search-legacy', params],
 		queryFn: () => searchPosts(params),
 		enabled: params.q.length > 0,
 	})
@@ -103,10 +136,17 @@ export function useLogout() {
 	})
 }
 
-// Feed
+// Feed - Infinite scroll with cursor-based pagination
+export function useInfiniteFeed(limit = 12) {
+	return createCursorInfiniteQuery(queryKeys.feed.posts(limit), (cursor) =>
+		getFeed({ cursor, limit }),
+	)
+}
+
+// Legacy feed hook
 export function useFeed(params?: GetPostsParams) {
 	return useQuery({
-		queryKey: queryKeys.feed.posts(params),
+		queryKey: ['feed', 'legacy', params],
 		queryFn: () => getFeed(params),
 	})
 }

@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/card'
+import { Card, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 
 // ISR - regenerate every hour
@@ -39,12 +39,7 @@ const blogs = [
 								</CardTitle>
 								<Badge variant="secondary">{blog.postsCount} 記事</Badge>
 							</div>
-							{blog.description && (
-								<CardDescription className="line-clamp-2">
-									{blog.description}
-								</CardDescription>
-							)}
-							<p class="text-xs text-muted-foreground">
+							<p class="text-xs text-muted-foreground sm:text-sm">
 								{new URL(blog.siteUrl).hostname}
 							</p>
 						</CardHeader>

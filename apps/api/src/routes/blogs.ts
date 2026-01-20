@@ -1,13 +1,15 @@
 import { vValidator } from '@hono/valibot-validator'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { blogs, follows } from '../db/schema'
+import { requireAuth } from '../middleware/auth'
 
 type Variables = {
 	db: Database
+	userId: string
 }
 
 export const blogsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -104,16 +106,11 @@ blogsRoute.get(
 	},
 )
 
-// Follow a blog (requires auth - TODO: implement auth middleware)
-blogsRoute.post('/:id/follow', async (c) => {
-	// TODO: Get user from session
-	const userId = c.req.header('X-User-Id')
-	if (!userId) {
-		return c.json({ error: 'Unauthorized' }, 401)
-	}
-
+// Follow a blog
+blogsRoute.post('/:id/follow', requireAuth, async (c) => {
 	const blogId = c.req.param('id')
 	const db = c.get('db')
+	const userId = c.get('userId')
 
 	try {
 		await db.insert(follows).values({ userId, blogId }).onConflictDoNothing()
@@ -124,15 +121,11 @@ blogsRoute.post('/:id/follow', async (c) => {
 })
 
 // Unfollow a blog
-blogsRoute.delete('/:id/follow', async (c) => {
-	const userId = c.req.header('X-User-Id')
-	if (!userId) {
-		return c.json({ error: 'Unauthorized' }, 401)
-	}
-
+blogsRoute.delete('/:id/follow', requireAuth, async (c) => {
 	const blogId = c.req.param('id')
 	const db = c.get('db')
+	const userId = c.get('userId')
 
-	await db.delete(follows).where(eq(follows.userId, userId) && eq(follows.blogId, blogId))
+	await db.delete(follows).where(and(eq(follows.userId, userId), eq(follows.blogId, blogId)))
 	return c.json({ success: true })
 })

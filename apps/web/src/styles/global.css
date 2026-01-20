@@ -222,4 +222,141 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+
+	/* ────────────────────────────────────────────
+	   日本語タイポグラフィ最適化
+	   ──────────────────────────────────────────── */
+
+	/* 基本的な日本語テキスト処理 */
+	html {
+		/* 禁則処理: 句読点が行頭に来ないようにする */
+		line-break: strict;
+		/* 長いURLや英単語の折り返し */
+		overflow-wrap: anywhere;
+		/* ハイフネーションは日本語には不要 */
+		hyphens: none;
+		/* 字間を少し広げて可読性向上 */
+		letter-spacing: 0.02em;
+		/* 行送りを日本語向けに調整 */
+		line-height: 1.8;
+		/* フォントの最適化 */
+		font-feature-settings: 'palt' 1;
+		text-rendering: optimizeLegibility;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	/* 見出し: 均等な改行配分 */
+	h1, h2, h3, h4, h5, h6 {
+		text-wrap: balance;
+		line-height: 1.4;
+		letter-spacing: 0.01em;
+	}
+
+	/* 本文: 最終行の孤立防止 */
+	p, li, dd, figcaption {
+		text-wrap: pretty;
+	}
+
+	/* コード・等幅: 改行なし or 明示的に制御 */
+	code, pre, kbd, samp {
+		line-break: normal;
+		word-break: break-all;
+		letter-spacing: 0;
+	}
+}
+
+/* ────────────────────────────────────────────
+   流体タイポグラフィ（Fluid Typography）
+   min: 375px, max: 1280px で補間
+   ──────────────────────────────────────────── */
+@layer utilities {
+	/* 見出し用 */
+	.text-fluid-4xl {
+		font-size: clamp(2rem, 1.5rem + 2.5vw, 3rem);
+	}
+	.text-fluid-3xl {
+		font-size: clamp(1.75rem, 1.25rem + 2vw, 2.5rem);
+	}
+	.text-fluid-2xl {
+		font-size: clamp(1.5rem, 1.125rem + 1.5vw, 2rem);
+	}
+	.text-fluid-xl {
+		font-size: clamp(1.25rem, 1rem + 1vw, 1.5rem);
+	}
+
+	/* 本文用 */
+	.text-fluid-base {
+		font-size: clamp(0.9375rem, 0.875rem + 0.25vw, 1rem);
+	}
+	.text-fluid-sm {
+		font-size: clamp(0.8125rem, 0.75rem + 0.25vw, 0.875rem);
+	}
+
+	/* 改行制御ユーティリティ */
+	.text-balance {
+		text-wrap: balance;
+	}
+	.text-pretty {
+		text-wrap: pretty;
+	}
+	.text-nowrap-jp {
+		/* 日本語で改行させたくない短いフレーズ用 */
+		white-space: nowrap;
+	}
+	.break-keep {
+		/* 単語の途中で改行しない（英単語保護） */
+		word-break: keep-all;
+		overflow-wrap: anywhere;
+	}
+
+	/* レスポンシブ行間 */
+	.leading-relaxed-responsive {
+		line-height: clamp(1.625, 1.5 + 0.5vw, 1.875);
+	}
+
+	/* コンテナクエリ対応 */
+	.container-query {
+		container-type: inline-size;
+	}
+
+	/* レスポンシブパディング */
+	.px-responsive {
+		padding-left: clamp(1rem, 0.5rem + 2vw, 2rem);
+		padding-right: clamp(1rem, 0.5rem + 2vw, 2rem);
+	}
+	.py-responsive {
+		padding-top: clamp(1.5rem, 1rem + 2vw, 3rem);
+		padding-bottom: clamp(1.5rem, 1rem + 2vw, 3rem);
+	}
+
+	/* レスポンシブギャップ */
+	.gap-responsive {
+		gap: clamp(0.75rem, 0.5rem + 1vw, 1.5rem);
+	}
+	.gap-responsive-lg {
+		gap: clamp(1rem, 0.75rem + 1.5vw, 2rem);
+	}
+}
+
+/* ────────────────────────────────────────────
+   コンテナクエリベースのレスポンシブ
+   ──────────────────────────────────────────── */
+@container (max-width: 480px) {
+	.cq-stack {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+	.cq-full {
+		width: 100%;
+	}
+	.cq-hide {
+		display: none;
+	}
+}
+
+@container (min-width: 481px) {
+	.cq-show-sm {
+		display: block;
+	}
 }

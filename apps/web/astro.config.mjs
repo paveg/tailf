@@ -9,6 +9,9 @@ export default defineConfig({
 	build: {
 		assets: 'assets',
 	},
+	server: {
+		host: true,
+	},
 	integrations: [react(), sitemap()],
 	vite: {
 		plugins: [tailwindcss()],
