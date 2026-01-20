@@ -91,8 +91,10 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 						</a>
 						-->
 					</nav>
-					<div class="ml-auto flex items-center gap-2">
-						<MobileNav client:load />
+					<div class="ml-auto flex items-center rounded-full border bg-muted/30 md:border-0 md:bg-transparent">
+						<div class="flex items-center md:hidden">
+							<MobileNav client:load />
+						</div>
 						<UserMenu client:load />
 					</div>
 				</div>

@@ -1,6 +1,6 @@
 import { vValidator } from '@hono/valibot-validator'
 import { createFeedSchema } from '@tailf/shared'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -72,7 +72,7 @@ feedsRoute.get(
 			where: officialCondition,
 			limit: perPage,
 			offset,
-			orderBy: [desc(feeds.createdAt)],
+			orderBy: [asc(feeds.isOfficial), desc(feeds.createdAt)],
 			with: {
 				author: true,
 			},
