@@ -35,7 +35,7 @@ interface PostListContentProps {
 
 function PostListContent({ allPosts }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
-	const [techOnly, setTechOnly] = useState(false)
+	const [techOnly, setTechOnly] = useState(true)
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
 
