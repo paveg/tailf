@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { createDb } from './db'
+import { adminRoute } from './routes/admin'
 import { authRoute } from './routes/auth'
 import { userFeedRoute } from './routes/feed'
 import { feedsRoute } from './routes/feeds'
@@ -17,6 +18,7 @@ export type Env = {
 	ENVIRONMENT: string
 	API_URL?: string
 	APP_URL?: string
+	ADMIN_SECRET?: string
 }
 
 type Variables = {
@@ -55,6 +57,7 @@ app.route('/api/auth', authRoute)
 app.route('/api/feeds', feedsRoute)
 app.route('/api/posts', postsRoute)
 app.route('/api/feed', userFeedRoute)
+app.route('/api/admin', adminRoute)
 
 // Cron handler for RSS fetching
 export default {
