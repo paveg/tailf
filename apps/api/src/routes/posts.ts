@@ -41,7 +41,7 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 		where: cursorCondition || techCondition ? and(cursorCondition, techCondition) : undefined,
 		limit: limit + 1,
 		orderBy: [desc(posts.publishedAt)],
-		with: { feed: true },
+		with: { feed: { with: { author: true } } },
 	})
 
 	return c.json(buildCursorResponse(result, limit))
@@ -72,7 +72,7 @@ postsRoute.get(
 			where: conditions.length > 0 ? and(...conditions) : undefined,
 			limit: limit + 1,
 			orderBy: [desc(posts.publishedAt)],
-			with: { feed: true },
+			with: { feed: { with: { author: true } } },
 		})
 
 		const response = buildCursorResponse(result, limit)
@@ -119,7 +119,7 @@ postsRoute.get(
 			limit,
 			orderBy: [desc(posts.publishedAt)],
 			with: {
-				blog: true,
+				feed: { with: { author: true } },
 			},
 		})
 

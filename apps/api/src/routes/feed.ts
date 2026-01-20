@@ -63,7 +63,7 @@ userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async 
 		where: conditions.length > 0 ? and(...conditions) : undefined,
 		limit: limit + 1,
 		orderBy: [desc(posts.publishedAt)],
-		with: { feed: true },
+		with: { feed: { with: { author: true } } },
 	})
 
 	return c.json(buildCursorResponse(result, limit))

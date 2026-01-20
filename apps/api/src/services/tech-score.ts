@@ -252,6 +252,10 @@ const NON_TECH_ANCHOR_PHRASES = [
 	'日記 振り返り 感想 ポエム 雑記',
 	'勉強会 イベントレポート 参加してきた 登壇',
 	'書評 読書感想 おすすめ本 レビュー',
+	// Gadget & Review
+	'ガジェット レビュー 買ってよかった デスクツアー 機材紹介',
+	'キーボード マウス モニター イヤホン ヘッドホン',
+	'旅行記 観光 グルメ 食べ歩き',
 ]
 
 // Cache for anchor embeddings (computed once per worker instance)
