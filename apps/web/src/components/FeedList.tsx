@@ -92,9 +92,12 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 						>
 							<Card className="group h-full transition-colors hover:border-primary/20 hover:bg-muted/50">
 								<CardHeader className="gap-2">
-									<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
-										{feed.title}
-									</CardTitle>
+									<div className="flex items-start justify-between gap-2">
+										<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
+											{feed.title}
+										</CardTitle>
+										{feed.isOfficial && <Building2 className="size-4 shrink-0 text-primary" />}
+									</div>
 									{feed.description && (
 										<p className="line-clamp-2 text-sm text-muted-foreground">{feed.description}</p>
 									)}

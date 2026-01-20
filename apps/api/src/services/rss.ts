@@ -1,6 +1,6 @@
 import { eq, gte } from 'drizzle-orm'
 import type { Database } from '../db'
-import { posts } from '../db/schema'
+import { feeds, posts } from '../db/schema'
 import { generateId } from '../utils/id'
 import { getBookmarkCount } from './hatena'
 import { calculateTechScore, calculateTechScoreWithEmbedding } from './tech-score'
@@ -176,6 +176,15 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 			if (!parsedFeed) {
 				console.error(`Failed to parse feed: ${feed.feedUrl}`)
 				continue
+			}
+
+			// Update feed metadata if description is missing
+			if (!feed.description && parsedFeed.description) {
+				await db
+					.update(feeds)
+					.set({ description: parsedFeed.description.slice(0, 500) })
+					.where(eq(feeds.id, feed.id))
+				console.log(`Updated description for: ${feed.title}`)
 			}
 
 			// Insert new posts
