@@ -130,7 +130,7 @@ postsRoute.get(
 	},
 )
 
-// Get popular posts (by recent publish date for now, can add view count later)
+// Get popular posts by Hatena Bookmark count
 postsRoute.get(
 	'/ranking',
 	vValidator(
@@ -164,7 +164,8 @@ postsRoute.get(
 		const result = await db.query.posts.findMany({
 			where: techCondition ? and(dateCondition, techCondition) : dateCondition,
 			limit,
-			orderBy: [desc(posts.publishedAt)],
+			// Sort by Hatena bookmark count (descending), then by published date
+			orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
 			with: {
 				feed: { with: { author: true } },
 			},
