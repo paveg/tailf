@@ -9,6 +9,7 @@ import { useFeeds } from '@/lib/hooks'
 import { useBooleanQueryParam } from '@/lib/useQueryParams'
 import { QueryProvider } from './QueryProvider'
 import { Card, CardHeader, CardTitle } from './ui/card'
+import { Empty } from './ui/empty'
 import { Skeleton } from './ui/skeleton'
 import { Toggle } from './ui/toggle'
 
@@ -69,14 +70,10 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 
 			{/* Empty State */}
 			{!isInitialLoading && feeds.length === 0 && (
-				<div className="py-12 text-center">
-					<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-muted">
-						<Rss className="size-8 text-muted-foreground" />
-					</div>
-					<p className="text-lg font-medium text-muted-foreground">
-						{officialOnly ? '企業ブログがありません' : 'まだフィードが登録されていません'}
-					</p>
-				</div>
+				<Empty
+					icon={Rss}
+					title={officialOnly ? '企業ブログがありません' : 'まだフィードが登録されていません'}
+				/>
 			)}
 
 			{/* Feed Grid */}
