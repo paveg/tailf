@@ -5,7 +5,8 @@
  * Gold/Silver/Bronze ranking badges for top 3
  */
 import type { PostWithFeed } from '@tailf/shared'
-import { Bookmark, Calendar, ExternalLink, Flame, TrendingUp } from 'lucide-react'
+import { Calendar, ExternalLink, Flame, TrendingUp } from 'lucide-react'
+import { HatenaBookmarkIcon } from '@/components/icons/HatenaBookmarkIcon'
 import { useRankingPosts } from '@/lib/hooks'
 import { extractDomain, formatDate } from '@/lib/utils'
 import { QueryProvider } from './QueryProvider'
@@ -71,7 +72,7 @@ function RankingCard({ post, rank }: RankingCardProps) {
 							{/* Hatena Bookmark Count */}
 							{post.hatenaBookmarkCount != null && post.hatenaBookmarkCount > 0 && (
 								<div className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
-									<Bookmark className="size-3" />
+									<HatenaBookmarkIcon className="size-3" />
 									<span>{post.hatenaBookmarkCount}</span>
 								</div>
 							)}

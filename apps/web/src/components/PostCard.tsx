@@ -1,4 +1,5 @@
-import { Bookmark, Calendar, ExternalLink } from 'lucide-react'
+import { Calendar, ExternalLink } from 'lucide-react'
+import { HatenaBookmarkIcon } from '@/components/icons/HatenaBookmarkIcon'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { extractDomain, formatDate } from '@/lib/utils'
 
@@ -58,7 +59,7 @@ export function PostCard({ post }: PostCardProps) {
 								<div
 									className={`flex items-center gap-1 ${isPopular ? 'text-orange-500 dark:text-orange-400' : ''}`}
 								>
-									<Bookmark className="size-3" />
+									<HatenaBookmarkIcon className="size-3" />
 									<span className={isPopular ? 'font-medium' : ''}>{bookmarkCount}</span>
 								</div>
 							)}
