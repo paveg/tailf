@@ -106,6 +106,10 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 														feed.author.avatarUrl || `https://github.com/${feed.author.name}.png`
 													}
 													alt={feed.author.name}
+													width={20}
+													height={20}
+													loading="lazy"
+													decoding="async"
 													className="size-5 shrink-0 rounded-full"
 												/>
 											)}

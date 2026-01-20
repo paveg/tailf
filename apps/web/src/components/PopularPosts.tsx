@@ -97,6 +97,10 @@ function RankingCard({ post, rank }: RankingCardProps) {
 								<img
 									src={post.feed.author.avatarUrl}
 									alt={post.feed.author.name}
+									width={20}
+									height={20}
+									loading="lazy"
+									decoding="async"
 									className="size-5 shrink-0 rounded-full"
 								/>
 							)}
