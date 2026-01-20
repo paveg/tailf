@@ -88,11 +88,14 @@ export interface CursorResponse<T> {
 	meta: CursorMeta
 }
 
+export type SortOption = 'recent' | 'popular'
+
 export interface GetPostsParams {
 	cursor?: string
 	limit?: number
 	techOnly?: boolean
 	official?: boolean
+	sort?: SortOption
 }
 
 export async function getPosts(

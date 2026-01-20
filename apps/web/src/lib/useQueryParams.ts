@@ -38,17 +38,15 @@ export function useQueryParam<T extends ParamValue>(
 			return String(v)
 		})
 
-	// 初期値をURLから読み取り
-	const getInitialValue = (): T => {
-		if (typeof window === 'undefined') return defaultValue
-		const params = new URLSearchParams(window.location.search)
-		return parseValue(params.get(key))
-	}
+	// 初期値はdefaultValueを使用（SSRとの整合性のため）
+	const [value, setValue] = useState<T>(defaultValue)
 
-	const [value, setValue] = useState<T>(getInitialValue)
-
-	// URL変更時に同期（ブラウザバック対応）
+	// マウント後にURLから値を読み取り + URL変更時に同期（ブラウザバック対応）
 	useEffect(() => {
+		// 初回マウント時にURLから値を読み取り
+		const params = new URLSearchParams(window.location.search)
+		setValue(parseValue(params.get(key)))
+
 		const handlePopState = () => {
 			const params = new URLSearchParams(window.location.search)
 			setValue(parseValue(params.get(key)))
@@ -87,4 +85,22 @@ export function useBooleanQueryParam(
 	defaultValue = false,
 ): [boolean, (value: boolean) => void] {
 	return useQueryParam(key, { defaultValue })
+}
+
+/**
+ * String型のquery param用ショートカット（特定の値のみ許可）
+ */
+export function useStringQueryParam<T extends string>(
+	key: string,
+	defaultValue: T,
+	allowedValues?: readonly T[],
+): [T, (value: T) => void] {
+	return useQueryParam(key, {
+		defaultValue,
+		parse: (v) => {
+			if (v === null) return defaultValue
+			if (allowedValues && !allowedValues.includes(v as T)) return defaultValue
+			return v as T
+		},
+	})
 }

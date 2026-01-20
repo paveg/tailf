@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import { PopularPosts } from '../components/PopularPosts'
 import { RecentPosts } from '../components/RecentPosts'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card'
@@ -17,8 +18,9 @@ const initialPosts = allPosts.slice(0, 6)
 		<!-- Hero Section -->
 		<section class="mb-12 text-center">
 			<h1 class="mb-4 font-mono text-2xl font-extrabold whitespace-nowrap sm:text-4xl md:text-5xl">
+				<span class="text-muted-foreground">❯ </span>
 				<span class="text-primary">tail -f</span>
-				<span class="text-muted-foreground"> tech blogs</span>
+				<span class="text-foreground"> tech-feeds</span>
 			</h1>
 			<p class="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg">
 				<span class="block">日本の技術ブログを、もっと見つけやすく。</span>
@@ -26,8 +28,13 @@ const initialPosts = allPosts.slice(0, 6)
 			</p>
 		</section>
 
-		<!-- Posts Preview -->
-		<section>
+		<!-- Popular Posts -->
+		<section class="mb-12">
+			<PopularPosts client:load />
+		</section>
+
+		<!-- Recent Posts -->
+		<section class="mb-12">
 			<div class="mb-6 flex items-center justify-between">
 				<h2 class="text-2xl font-bold">新着記事</h2>
 				<a href="/posts" class="text-sm text-primary hover:underline">

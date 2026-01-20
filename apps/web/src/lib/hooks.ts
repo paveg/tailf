@@ -3,7 +3,7 @@
  */
 import type { PostWithFeed } from '@tailf/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CursorResponse } from './api'
+import type { CursorResponse, SortOption } from './api'
 import {
 	deleteFeed,
 	followFeed,
@@ -62,8 +62,8 @@ function createCursorInfiniteQuery<T>(
 export const queryKeys = {
 	posts: {
 		all: ['posts'] as const,
-		list: (limit?: number, techOnly?: boolean, official?: boolean) =>
-			['posts', 'list', { limit, techOnly, official }] as const,
+		list: (limit?: number, techOnly?: boolean, official?: boolean, sort?: SortOption) =>
+			['posts', 'list', { limit, techOnly, official, sort }] as const,
 		search: (q: string, limit?: number, techOnly?: boolean, official?: boolean) =>
 			['posts', 'search', { q, limit, techOnly, official }] as const,
 		ranking: (period: 'week' | 'month', limit: number, techOnly?: boolean) =>
@@ -90,11 +90,12 @@ export function useInfinitePosts(
 	limit = 12,
 	techOnly = false,
 	official?: boolean,
+	sort: SortOption = 'recent',
 	initialData?: CursorResponse<PostWithFeed[]>,
 ) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.list(limit, techOnly, official),
-		(cursor) => getPosts({ cursor, limit, techOnly, official }),
+		queryKeys.posts.list(limit, techOnly, official, sort),
+		(cursor) => getPosts({ cursor, limit, techOnly, official, sort }),
 		{ initialData },
 	)
 }

@@ -4,14 +4,13 @@
  * SSG + クライアントフォールバック方式
  */
 import type { Feed } from '@tailf/shared'
-import { Building2, Rss } from 'lucide-react'
+import { Building2, ExternalLink, Rss } from 'lucide-react'
 import { useFeeds } from '@/lib/hooks'
 import { useBooleanQueryParam } from '@/lib/useQueryParams'
 import { QueryProvider } from './QueryProvider'
 import { Card, CardHeader, CardTitle } from './ui/card'
-import { Label } from './ui/label'
 import { Skeleton } from './ui/skeleton'
-import { Switch } from './ui/switch'
+import { Toggle } from './ui/toggle'
 
 interface FeedListContentProps {
 	initialFeeds: Feed[]
@@ -33,16 +32,16 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	// フィルタートグル - 常に表示
 	const filterToggle = (
 		<div className="flex items-center justify-end">
-			<div className="flex items-center gap-2">
-				<Switch id="official-only-feeds" checked={officialOnly} onCheckedChange={setOfficialOnly} />
-				<Label
-					htmlFor="official-only-feeds"
-					className="flex cursor-pointer items-center gap-1.5 text-sm"
-				>
-					<Building2 className="size-4" />
-					企業ブログ
-				</Label>
-			</div>
+			<Toggle
+				variant="outline"
+				pressed={officialOnly}
+				onPressedChange={setOfficialOnly}
+				size="sm"
+				className="text-xs"
+			>
+				<Building2 className={officialOnly ? 'text-primary' : ''} />
+				企業ブログ
+			</Toggle>
 		</div>
 	)
 
@@ -92,29 +91,33 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 							className="block"
 						>
 							<Card className="group h-full transition-colors hover:border-primary/20 hover:bg-muted/50">
-								<CardHeader>
-									<div className="flex items-start justify-between gap-2">
-										<div className="min-w-0 flex-1">
-											<CardTitle className="truncate text-base group-hover:text-primary">
-												{feed.title}
-											</CardTitle>
-											{feed.description && (
-												<p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-													{feed.description}
-												</p>
+								<CardHeader className="gap-2">
+									<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
+										{feed.title}
+									</CardTitle>
+									{feed.description && (
+										<p className="line-clamp-2 text-sm text-muted-foreground">{feed.description}</p>
+									)}
+									<div className="flex items-center justify-between gap-2 overflow-hidden">
+										<div className="flex min-w-0 flex-1 items-center gap-2">
+											{feed.author && (
+												<img
+													src={
+														feed.author.avatarUrl || `https://github.com/${feed.author.name}.png`
+													}
+													alt={feed.author.name}
+													className="size-5 shrink-0 rounded-full"
+												/>
 											)}
+											<span className="truncate text-xs text-muted-foreground">
+												{feed.author?.name ?? feed.title}
+											</span>
 										</div>
-										{feed.author && (
-											<img
-												src={feed.author.avatarUrl || `https://github.com/${feed.author.name}.png`}
-												alt={feed.author.name}
-												className="size-8 shrink-0 rounded-full"
-											/>
-										)}
+										<span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground/60">
+											{new URL(feed.siteUrl).hostname}
+											<ExternalLink className="size-3" />
+										</span>
 									</div>
-									<p className="mt-2 text-xs text-muted-foreground">
-										{new URL(feed.siteUrl).hostname}
-									</p>
 								</CardHeader>
 							</Card>
 						</a>
