@@ -26,8 +26,21 @@ export function PostCard({ post }: PostCardProps) {
 	const isPopular = bookmarkCount >= 10
 
 	return (
-		<Card className="group transition-colors hover:bg-muted/50">
+		<Card
+			className={`group overflow-hidden transition-colors hover:bg-muted/50 ${post.thumbnailUrl ? 'pt-0' : ''}`}
+		>
 			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
+				{post.thumbnailUrl && (
+					<div className="aspect-[2/1] w-full overflow-hidden border-b bg-muted mb-2">
+						<img
+							src={post.thumbnailUrl}
+							alt=""
+							loading="lazy"
+							decoding="async"
+							className="size-full object-cover"
+						/>
+					</div>
+				)}
 				<CardHeader className="gap-2">
 					<div className="flex items-center justify-between text-xs text-muted-foreground">
 						<div className="flex items-center gap-3">
@@ -51,7 +64,7 @@ export function PostCard({ post }: PostCardProps) {
 						{post.title}
 					</CardTitle>
 					<div className="flex items-center justify-between gap-2 overflow-hidden">
-						<div className="flex items-center gap-2 min-w-0 flex-1">
+						<div className="flex min-w-0 flex-1 items-center gap-2">
 							{post.feed.author?.avatarUrl && (
 								<img
 									src={post.feed.author.avatarUrl}
