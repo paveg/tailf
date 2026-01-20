@@ -1,5 +1,5 @@
 -- Auto-generated schema dump
--- Generated at: 2026-01-20 10:05:16 UTC
+-- Generated at: 2026-01-20 11:36:55 UTC
 -- DO NOT EDIT - This file is auto-generated from migrations
 
 -- ==========================================

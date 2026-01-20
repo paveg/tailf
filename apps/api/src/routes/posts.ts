@@ -12,7 +12,7 @@ import { buildCursorResponse } from '../utils/pagination'
 // 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
 const TECH_SCORE_THRESHOLD = 0.65
 
-// Extended schema with techOnly and official filters
+// Extended schema with techOnly, official, and sort filters
 const postsQuerySchema = v.object({
 	...cursorPaginationQuerySchema.entries,
 	techOnly: v.optional(
@@ -27,6 +27,7 @@ const postsQuerySchema = v.object({
 			v.transform((s) => s === 'true'),
 		),
 	),
+	sort: v.optional(v.picklist(['recent', 'popular']), 'recent'),
 })
 
 /**
@@ -48,10 +49,26 @@ export const postsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 // Get latest posts (timeline) - cursor-based pagination
 postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
-	const { cursor, limit, techOnly, official } = c.req.valid('query')
+	const { cursor, limit, techOnly, official, sort } = c.req.valid('query')
 	const db = c.get('db')
 
-	const cursorCondition = cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined
+	// Cursor condition depends on sort type
+	let cursorCondition: SQL | undefined
+	if (cursor) {
+		if (sort === 'popular') {
+			// For popular sort, cursor is "bookmarkCount:publishedAt" format
+			const [countStr, dateStr] = cursor.split(':')
+			const cursorCount = Number.parseInt(countStr, 10)
+			const cursorDate = new Date(dateStr)
+			// Posts with lower bookmark count, or same count but older
+			cursorCondition = or(
+				lt(posts.hatenaBookmarkCount, cursorCount),
+				and(eq(posts.hatenaBookmarkCount, cursorCount), lt(posts.publishedAt, cursorDate)),
+			)
+		} else {
+			cursorCondition = lt(posts.publishedAt, new Date(cursor))
+		}
+	}
 	const techCondition = techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined
 
 	// Official filter: get feed IDs first, then filter posts
@@ -68,14 +85,20 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 
 	const conditions = [cursorCondition, techCondition, officialCondition].filter(Boolean)
 
+	// Order by sort type
+	const orderBy =
+		sort === 'popular'
+			? [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)]
+			: [desc(posts.publishedAt)]
+
 	const result = await db.query.posts.findMany({
 		where: conditions.length > 0 ? and(...conditions) : undefined,
 		limit: limit + 1,
-		orderBy: [desc(posts.publishedAt)],
+		orderBy,
 		with: { feed: { with: { author: true } } },
 	})
 
-	return c.json(buildCursorResponse(result, limit))
+	return c.json(buildCursorResponse(result, limit, sort))
 })
 
 // Search posts - cursor-based pagination
@@ -130,7 +153,7 @@ postsRoute.get(
 	},
 )
 
-// Get popular posts (by recent publish date for now, can add view count later)
+// Get popular posts by Hatena Bookmark count
 postsRoute.get(
 	'/ranking',
 	vValidator(
@@ -164,7 +187,8 @@ postsRoute.get(
 		const result = await db.query.posts.findMany({
 			where: techCondition ? and(dateCondition, techCondition) : dateCondition,
 			limit,
-			orderBy: [desc(posts.publishedAt)],
+			// Sort by Hatena bookmark count (descending), then by published date
+			orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
 			with: {
 				feed: { with: { author: true } },
 			},

@@ -35,6 +35,8 @@ export interface Post {
 	thumbnailUrl: string | null
 	publishedAt: Date
 	feedId: string
+	techScore: number | null
+	hatenaBookmarkCount: number | null
 	createdAt: Date
 }
 

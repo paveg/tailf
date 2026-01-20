@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm'
+import { eq, gte } from 'drizzle-orm'
 import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { generateId } from '../utils/id'
+import { getBookmarkCount } from './hatena'
 import { calculateTechScore, calculateTechScoreWithEmbedding } from './tech-score'
 
 interface RssItem {
@@ -208,6 +209,46 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	}
 
 	console.log('RSS feed fetch complete.')
+
+	// Update Hatena bookmark counts for recent posts
+	await updateHatenaBookmarkCounts(db)
+}
+
+/**
+ * Update Hatena bookmark counts for recent posts (past 7 days)
+ * Called after RSS feed fetch to update bookmark counts
+ */
+async function updateHatenaBookmarkCounts(db: Database): Promise<void> {
+	console.log('[Hatena] Starting bookmark count update...')
+
+	const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+	const recentPosts = await db.query.posts.findMany({
+		where: gte(posts.publishedAt, oneWeekAgo),
+		columns: { id: true, url: true, hatenaBookmarkCount: true },
+	})
+
+	console.log(`[Hatena] Updating ${recentPosts.length} recent posts`)
+
+	let updated = 0
+	for (const post of recentPosts) {
+		try {
+			const count = await getBookmarkCount(post.url)
+
+			// Only update if count changed
+			if (count !== post.hatenaBookmarkCount) {
+				await db.update(posts).set({ hatenaBookmarkCount: count }).where(eq(posts.id, post.id))
+				updated++
+			}
+
+			// Rate limiting: 100ms delay between requests
+			await new Promise((resolve) => setTimeout(resolve, 100))
+		} catch (error) {
+			console.warn(`[Hatena] Failed to update bookmark count for ${post.url}:`, error)
+		}
+	}
+
+	console.log(`[Hatena] Updated ${updated} posts with new bookmark counts`)
 }
 
 // Fetch single feed and return parsed result (for blog registration)

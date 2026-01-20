@@ -1,4 +1,4 @@
-import { Calendar, ExternalLink } from 'lucide-react'
+import { Bookmark, Calendar, ExternalLink } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { extractDomain, formatDate } from '@/lib/utils'
 
@@ -9,6 +9,7 @@ interface PostCardProps {
 		url: string
 		publishedAt: string | Date
 		thumbnailUrl?: string | null
+		hatenaBookmarkCount?: number | null
 		feed: {
 			title: string
 			siteUrl: string
@@ -21,18 +22,30 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+	const bookmarkCount = post.hatenaBookmarkCount ?? 0
+	const isPopular = bookmarkCount >= 10
+
 	return (
 		<Card className="group transition-colors hover:bg-muted/50">
 			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
 				<CardHeader className="gap-2">
 					<div className="flex items-center justify-between text-xs text-muted-foreground">
-						<div className="flex items-center gap-1.5">
-							<Calendar className="size-3" />
-							<time dateTime={new Date(post.publishedAt).toISOString()}>
-								{formatDate(post.publishedAt)}
-							</time>
+						<div className="flex items-center gap-3">
+							<div className="flex items-center gap-1.5">
+								<Calendar className="size-3" />
+								<time dateTime={new Date(post.publishedAt).toISOString()}>
+									{formatDate(post.publishedAt)}
+								</time>
+							</div>
+							{bookmarkCount > 0 && (
+								<div
+									className={`flex items-center gap-1 ${isPopular ? 'text-orange-500 dark:text-orange-400' : ''}`}
+								>
+									<Bookmark className="size-3" />
+									<span className={isPopular ? 'font-medium' : ''}>{bookmarkCount}</span>
+								</div>
+							)}
 						</div>
-						<ExternalLink className="size-3 shrink-0" />
 					</div>
 					<CardTitle className="line-clamp-2 text-base leading-snug group-hover:text-primary break-keep">
 						{post.title}
@@ -43,6 +56,10 @@ export function PostCard({ post }: PostCardProps) {
 								<img
 									src={post.feed.author.avatarUrl}
 									alt={post.feed.author.name}
+									width={20}
+									height={20}
+									loading="lazy"
+									decoding="async"
 									className="size-5 shrink-0 rounded-full"
 								/>
 							)}
@@ -50,8 +67,9 @@ export function PostCard({ post }: PostCardProps) {
 								{post.feed.author?.name ?? post.feed.title}
 							</span>
 						</div>
-						<span className="shrink-0 truncate text-xs text-muted-foreground/60">
+						<span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground/60">
 							{extractDomain(post.url)}
+							<ExternalLink className="size-3" />
 						</span>
 					</div>
 				</CardHeader>

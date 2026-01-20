@@ -88,10 +88,14 @@ export interface CursorResponse<T> {
 	meta: CursorMeta
 }
 
+export type SortOption = 'recent' | 'popular'
+
 export interface GetPostsParams {
 	cursor?: string
 	limit?: number
 	techOnly?: boolean
+	official?: boolean
+	sort?: SortOption
 }
 
 export async function getPosts(
@@ -105,6 +109,7 @@ export interface SearchPostsParams {
 	cursor?: string
 	limit?: number
 	techOnly?: boolean
+	official?: boolean
 }
 
 export async function searchPosts(
@@ -130,6 +135,7 @@ export async function getRankingPosts(
 export interface GetFeedsParams {
 	page?: number
 	perPage?: number
+	official?: boolean
 }
 
 export async function getFeeds(params: GetFeedsParams = {}): Promise<ApiResponse<Feed[]>> {

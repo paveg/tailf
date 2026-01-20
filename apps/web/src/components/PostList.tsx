@@ -14,18 +14,20 @@
  * - visibleCount/filteredPosts のロジックを削除
  */
 import type { PostWithFeed } from '@tailf/shared'
-import { Code2 } from 'lucide-react'
+import { Building2, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import type { SortOption } from '@/lib/api'
 import { useInfinitePosts, useInfiniteSearchPosts } from '@/lib/hooks'
 import { useDebounce } from '@/lib/useDebounce'
 import { useIntersectionObserver } from '@/lib/useIntersectionObserver'
+import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
 import { PostCard } from './PostCard'
 import { QueryProvider } from './QueryProvider'
 import { SearchInput } from './SearchInput'
 import { Button } from './ui/button'
-import { Label } from './ui/label'
 import { Skeleton } from './ui/skeleton'
-import { Switch } from './ui/switch'
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
 const POSTS_PER_PAGE = 12
 
@@ -33,9 +35,13 @@ interface PostListContentProps {
 	allPosts: PostWithFeed[]
 }
 
+const SORT_OPTIONS = ['recent', 'popular'] as const
+
 function PostListContent({ allPosts }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
-	const [techOnly, setTechOnly] = useState(true)
+	const [techOnly, setTechOnly] = useBooleanQueryParam('tech', true)
+	const [officialOnly, setOfficialOnly] = useBooleanQueryParam('official', false)
+	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
 
@@ -43,10 +49,11 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 	// SSGデータがない場合（開発環境）はAPIから取得
 	const useClientFetch = allPosts.length === 0
-	const apiQuery = useInfinitePosts(12, techOnly)
+	const official = officialOnly ? true : undefined
+	const apiQuery = useInfinitePosts(12, techOnly, official, sort)
 
 	// Search uses API (can't pre-build search results)
-	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly)
+	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly, official)
 
 	// APIから取得した記事（開発環境用）
 	const apiPosts = useMemo(() => {
@@ -56,14 +63,24 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	// 使用する記事データ（SSG or API）
 	const sourcePosts = useClientFetch ? apiPosts : allPosts
 
-	// Filter posts client-side
+	// Filter and sort posts client-side
 	const filteredPosts = useMemo(() => {
+		let posts = sourcePosts
 		if (techOnly && !useClientFetch) {
 			// SSGの場合はクライアントでフィルタ
-			return sourcePosts.filter((post) => (post.techScore ?? 0) >= 0.3)
+			posts = posts.filter((post) => (post.techScore ?? 0) >= 0.3)
 		}
-		return sourcePosts
-	}, [sourcePosts, techOnly, useClientFetch])
+		// SSGの場合はクライアントでソート
+		if (!useClientFetch && sort === 'popular') {
+			posts = [...posts].sort((a, b) => {
+				const aCount = a.hatenaBookmarkCount ?? 0
+				const bCount = b.hatenaBookmarkCount ?? 0
+				if (bCount !== aCount) return bCount - aCount
+				return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+			})
+		}
+		return posts
+	}, [sourcePosts, techOnly, useClientFetch, sort])
 
 	// Visible posts (client-side pagination for SSG)
 	const visiblePosts = useMemo(() => {
@@ -115,11 +132,11 @@ function PostListContent({ allPosts }: PostListContentProps) {
 		searchQueryResult.fetchNextPage,
 	])
 
-	// Reset visible count when filter changes
-	// biome-ignore lint/correctness/useExhaustiveDependencies: techOnly is intentionally a trigger to reset pagination
+	// Reset visible count when filter/sort changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
 	useEffect(() => {
 		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly])
+	}, [techOnly, officialOnly, sort])
 
 	// Determine which posts to show
 	const displayPosts = isSearching
@@ -137,21 +154,45 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 	return (
 		<div className="space-y-6">
-			{/* Search Input and Filter */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex-1">
-					<SearchInput
-						value={searchQuery}
-						onChange={setSearchQuery}
-						isLoading={showSearchLoading}
-					/>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<Switch id="tech-only" checked={techOnly} onCheckedChange={setTechOnly} />
-					<Label htmlFor="tech-only" className="flex cursor-pointer items-center gap-1.5 text-sm">
-						<Code2 className="size-4" />
-						技術記事のみ
-					</Label>
+			{/* Search Input and Controls */}
+			<div className="space-y-3">
+				{/* Search Input */}
+				<SearchInput value={searchQuery} onChange={setSearchQuery} isLoading={showSearchLoading} />
+
+				{/* Sort and Filters - single row */}
+				<div className="flex items-center justify-between gap-3">
+					{/* Sort Tabs */}
+					<Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+						<TabsList className="h-8">
+							<TabsTrigger value="recent" className="px-3 text-xs">
+								新着
+							</TabsTrigger>
+							<TabsTrigger value="popular" className="px-3 text-xs">
+								人気
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+
+					{/* Filters */}
+					<ToggleGroup
+						type="multiple"
+						variant="outline"
+						size="sm"
+						value={[...(techOnly ? ['tech'] : []), ...(officialOnly ? ['official'] : [])]}
+						onValueChange={(value) => {
+							setTechOnly(value.includes('tech'))
+							setOfficialOnly(value.includes('official'))
+						}}
+					>
+						<ToggleGroupItem value="tech" className="text-xs">
+							<Code2 className={techOnly ? 'text-primary' : ''} />
+							技術記事
+						</ToggleGroupItem>
+						<ToggleGroupItem value="official" className="text-xs">
+							<Building2 className={officialOnly ? 'text-primary' : ''} />
+							企業ブログ
+						</ToggleGroupItem>
+					</ToggleGroup>
 				</div>
 			</div>
 
