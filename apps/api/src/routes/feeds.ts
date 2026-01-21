@@ -1,6 +1,6 @@
 import { vValidator } from '@hono/valibot-validator'
-import { createFeedSchema } from '@tailf/shared'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { createFeedSchema, updateFeedSchema } from '@tailf/shared'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -75,16 +75,16 @@ feedsRoute.get('/mine', requireAuth, async (c) => {
 		},
 	})
 
-	// Add post count
+	// Add post count (bookmarkCount is already in the feeds table)
 	const feedsWithCount = await Promise.all(
 		result.map(async (feed) => {
-			const postCount = await db.query.posts.findMany({
+			const postList = await db.query.posts.findMany({
 				where: eq(posts.feedId, feed.id),
 				columns: { id: true },
 			})
 			return {
 				...feed,
-				postCount: postCount.length,
+				postCount: postList.length,
 			}
 		}),
 	)
@@ -246,6 +246,51 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 	}
 })
 
+// Update a feed (only owner can update)
+feedsRoute.patch('/:id', vValidator('json', updateFeedSchema), requireAuth, async (c) => {
+	const feedId = c.req.param('id')
+	const updates = c.req.valid('json')
+	const db = c.get('db')
+	const userId = c.get('userId')
+
+	try {
+		// Check if feed exists and user is owner
+		const feed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
+		})
+
+		if (!feed) {
+			return c.json({ error: 'Feed not found' }, 404)
+		}
+
+		if (feed.authorId !== userId) {
+			return c.json({ error: 'You can only update your own feeds' }, 403)
+		}
+
+		// Build update object with only provided fields
+		const updateData: Partial<typeof feeds.$inferInsert> = {
+			updatedAt: new Date(),
+		}
+		if (updates.title !== undefined) updateData.title = updates.title
+		if (updates.description !== undefined) updateData.description = updates.description
+		if (updates.type !== undefined) updateData.type = updates.type
+
+		await db.update(feeds).set(updateData).where(eq(feeds.id, feedId))
+
+		// Return updated feed
+		const updatedFeed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
+			with: { author: true },
+		})
+
+		console.log(`[Feed Update] Feed updated: ${feedId}`)
+		return c.json({ data: updatedFeed })
+	} catch (error) {
+		console.error('[Feed Update] Error:', error)
+		return c.json({ error: 'Failed to update feed', details: String(error) }, 500)
+	}
+})
+
 // Bookmark a feed
 feedsRoute.post('/:id/bookmark', requireAuth, async (c) => {
 	const feedId = c.req.param('id')
@@ -253,7 +298,23 @@ feedsRoute.post('/:id/bookmark', requireAuth, async (c) => {
 	const userId = c.get('userId')
 
 	try {
-		await db.insert(feedBookmarks).values({ userId, feedId }).onConflictDoNothing()
+		// Check if already bookmarked
+		const existing = await db.query.feedBookmarks.findFirst({
+			where: and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)),
+		})
+
+		if (existing) {
+			return c.json({ success: true })
+		}
+
+		// Insert bookmark and increment count
+		await db.batch([
+			db.insert(feedBookmarks).values({ userId, feedId }),
+			db
+				.update(feeds)
+				.set({ bookmarkCount: sql`${feeds.bookmarkCount} + 1` })
+				.where(eq(feeds.id, feedId)),
+		])
 		return c.json({ success: true })
 	} catch {
 		return c.json({ error: 'Failed to bookmark' }, 500)
@@ -266,9 +327,25 @@ feedsRoute.delete('/:id/bookmark', requireAuth, async (c) => {
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	await db
-		.delete(feedBookmarks)
-		.where(and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)))
+	// Check if bookmark exists
+	const existing = await db.query.feedBookmarks.findFirst({
+		where: and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)),
+	})
+
+	if (!existing) {
+		return c.json({ success: true })
+	}
+
+	// Delete bookmark and decrement count
+	await db.batch([
+		db
+			.delete(feedBookmarks)
+			.where(and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId))),
+		db
+			.update(feeds)
+			.set({ bookmarkCount: sql`MAX(${feeds.bookmarkCount} - 1, 0)` })
+			.where(eq(feeds.id, feedId)),
+	])
 	return c.json({ success: true })
 })
 

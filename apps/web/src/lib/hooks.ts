@@ -66,8 +66,13 @@ function createCursorInfiniteQuery<T>(
 export const queryKeys = {
 	posts: {
 		all: ['posts'] as const,
-		list: (limit?: number, techOnly?: boolean, official?: boolean, sort?: SortOption) =>
-			['posts', 'list', { limit, techOnly, official, sort }] as const,
+		list: (
+			limit?: number,
+			techOnly?: boolean,
+			official?: boolean,
+			sort?: SortOption,
+			excludeAuthorId?: string,
+		) => ['posts', 'list', { limit, techOnly, official, sort, excludeAuthorId }] as const,
 		search: (q: string, limit?: number, techOnly?: boolean, official?: boolean) =>
 			['posts', 'search', { q, limit, techOnly, official }] as const,
 		ranking: (period: 'week' | 'month', limit: number, techOnly?: boolean) =>
@@ -95,11 +100,12 @@ export function useInfinitePosts(
 	techOnly = false,
 	official?: boolean,
 	sort: SortOption = 'recent',
+	excludeAuthorId?: string,
 	initialData?: CursorResponse<PostWithFeed[]>,
 ) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.list(limit, techOnly, official, sort),
-		(cursor) => getPosts({ cursor, limit, techOnly, official, sort }),
+		queryKeys.posts.list(limit, techOnly, official, sort, excludeAuthorId),
+		(cursor) => getPosts({ cursor, limit, techOnly, official, sort, excludeAuthorId }),
 		{ initialData },
 	)
 }
@@ -180,23 +186,30 @@ export function useLogout() {
 
 // User Feed - Infinite scroll with cursor-based pagination
 export function useInfiniteUserFeed(limit = 12, techOnly = false) {
-	return createCursorInfiniteQuery(queryKeys.userFeed.posts(limit, techOnly), (cursor) =>
-		getUserFeed({ cursor, limit, techOnly }),
+	const { data: user } = useCurrentUser()
+	return createCursorInfiniteQuery(
+		queryKeys.userFeed.posts(limit, techOnly),
+		(cursor) => getUserFeed({ cursor, limit, techOnly }),
+		{ enabled: !!user },
 	)
 }
 
 // Legacy user feed hook
 export function useUserFeed(params?: GetPostsParams) {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: ['userFeed', 'legacy', params],
 		queryFn: () => getUserFeed(params),
+		enabled: !!user,
 	})
 }
 
 export function useBookmarkedFeeds() {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: queryKeys.userFeed.bookmarked,
 		queryFn: getBookmarkedFeeds,
+		enabled: !!user,
 	})
 }
 
@@ -240,9 +253,11 @@ export function useUnbookmarkFeed() {
 
 // My Feeds
 export function useMyFeeds() {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: queryKeys.feeds.mine,
 		queryFn: getMyFeeds,
+		enabled: !!user,
 	})
 }
 

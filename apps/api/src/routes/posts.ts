@@ -1,6 +1,19 @@
 import { vValidator } from '@hono/valibot-validator'
 import { cursorPaginationQuerySchema } from '@tailf/shared'
-import { and, desc, eq, gt, gte, inArray, like, lt, or, type SQL, sql } from 'drizzle-orm'
+import {
+	and,
+	desc,
+	eq,
+	gt,
+	gte,
+	inArray,
+	like,
+	lt,
+	notInArray,
+	or,
+	type SQL,
+	sql,
+} from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -14,7 +27,7 @@ import { buildCursorResponse } from '../utils/pagination'
 // 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
 const TECH_SCORE_THRESHOLD = 0.65
 
-// Extended schema with techOnly, official, and sort filters
+// Extended schema with techOnly, official, sort, and excludeAuthorId filters
 const postsQuerySchema = v.object({
 	...cursorPaginationQuerySchema.entries,
 	techOnly: v.optional(
@@ -30,6 +43,7 @@ const postsQuerySchema = v.object({
 		),
 	),
 	sort: v.optional(v.picklist(['recent', 'popular']), 'recent'),
+	excludeAuthorId: v.optional(v.string()),
 })
 
 /**
@@ -43,6 +57,17 @@ async function getOfficialFeedIds(db: Database, official: boolean): Promise<stri
 	return officialFeeds.map((f) => f.id)
 }
 
+/**
+ * Get feed IDs owned by a specific author (for exclusion)
+ */
+async function getFeedIdsByAuthor(db: Database, authorId: string): Promise<string[]> {
+	const authorFeeds = await db.query.feeds.findMany({
+		where: eq(feeds.authorId, authorId),
+		columns: { id: true },
+	})
+	return authorFeeds.map((f) => f.id)
+}
+
 type Variables = {
 	db: Database
 }
@@ -51,7 +76,7 @@ export const postsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 // Get latest posts (timeline) - cursor-based pagination
 postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
-	const { cursor, limit, techOnly, official, sort } = c.req.valid('query')
+	const { cursor, limit, techOnly, official, sort, excludeAuthorId } = c.req.valid('query')
 	const db = c.get('db')
 
 	// Cursor condition depends on sort type
@@ -82,7 +107,18 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 		}
 	}
 
-	const conditions = [cursorCondition, techCondition, officialCondition].filter(Boolean)
+	// Exclude posts from author's own feeds
+	let excludeCondition: SQL | undefined
+	if (excludeAuthorId) {
+		const excludeFeedIds = await getFeedIdsByAuthor(db, excludeAuthorId)
+		if (excludeFeedIds.length > 0) {
+			excludeCondition = notInArray(posts.feedId, excludeFeedIds)
+		}
+	}
+
+	const conditions = [cursorCondition, techCondition, officialCondition, excludeCondition].filter(
+		Boolean,
+	)
 
 	// Order by sort type
 	const orderBy =

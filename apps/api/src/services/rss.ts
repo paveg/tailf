@@ -57,6 +57,25 @@ export function decodeHtmlEntities(text: string): string {
 		.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
 }
 
+/**
+ * Strip XML/HTML tags from text and clean up whitespace
+ */
+function stripTags(text: string): string {
+	return text
+		.replace(/<[^>]+>/g, ' ') // Replace tags with space to preserve word boundaries
+		.replace(/\s+/g, ' ') // Normalize whitespace
+		.trim()
+}
+
+/**
+ * Clean description text: decode entities and strip any remaining tags
+ */
+function cleanDescription(text: string | undefined): string | undefined {
+	if (!text) return undefined
+	const cleaned = stripTags(decodeHtmlEntities(text))
+	return cleaned || undefined // Return undefined if empty after cleaning
+}
+
 export interface RssFeed {
 	title: string
 	description?: string
@@ -98,7 +117,7 @@ export function parseRss(xml: string): RssFeed | null {
 				items.push({
 					title: decodeHtmlEntities(title),
 					link,
-					description: description ? decodeHtmlEntities(description) : undefined,
+					description: cleanDescription(description),
 					pubDate: getTagContent('pubDate', itemContent),
 					thumbnail,
 				})
@@ -106,8 +125,8 @@ export function parseRss(xml: string): RssFeed | null {
 		}
 
 		return {
-			title: getTagContent('title', channel) || 'Unknown',
-			description: getTagContent('description', channel),
+			title: decodeHtmlEntities(getTagContent('title', channel) || 'Unknown'),
+			description: cleanDescription(getTagContent('description', channel)),
 			link: getTagContent('link', channel) || '',
 			items,
 		}
@@ -120,8 +139,8 @@ export function parseRss(xml: string): RssFeed | null {
 // Also support Atom feeds
 export function parseAtom(xml: string): RssFeed | null {
 	try {
-		const title = getTagContent('title', xml) || 'Unknown'
-		const description = getTagContent('subtitle', xml)
+		const title = decodeHtmlEntities(getTagContent('title', xml) || 'Unknown')
+		const description = cleanDescription(getTagContent('subtitle', xml))
 		const link = getLinkHref(xml) || ''
 
 		const items: RssItem[] = []
@@ -138,7 +157,7 @@ export function parseAtom(xml: string): RssFeed | null {
 				items.push({
 					title: decodeHtmlEntities(itemTitle),
 					link: itemLink,
-					description: itemDescription ? decodeHtmlEntities(itemDescription) : undefined,
+					description: cleanDescription(itemDescription),
 					pubDate:
 						getTagContent('published', entryContent) || getTagContent('updated', entryContent),
 				})

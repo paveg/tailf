@@ -132,4 +132,28 @@ describe('normalizeUrl', () => {
 			expect(normalizeUrl('https://github.blog/feed/')).toBe('https://github.blog/feed')
 		})
 	})
+
+	describe('SpeakerDeck feed conversion', () => {
+		it('converts SpeakerDeck .rss to .atom', () => {
+			expect(normalizeUrl('https://speakerdeck.com/username.rss')).toBe(
+				'https://speakerdeck.com/username.atom',
+			)
+		})
+
+		it('keeps SpeakerDeck .atom as is', () => {
+			expect(normalizeUrl('https://speakerdeck.com/username.atom')).toBe(
+				'https://speakerdeck.com/username.atom',
+			)
+		})
+
+		it('handles SpeakerDeck with www prefix', () => {
+			expect(normalizeUrl('https://www.speakerdeck.com/username.rss')).toBe(
+				'https://speakerdeck.com/username.atom',
+			)
+		})
+
+		it('does not affect non-SpeakerDeck .rss URLs', () => {
+			expect(normalizeUrl('https://example.com/feed.rss')).toBe('https://example.com/feed.rss')
+		})
+	})
 })

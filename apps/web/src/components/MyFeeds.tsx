@@ -1,4 +1,4 @@
-import { Bookmark, ExternalLink, Loader2, Plus, Rss, Trash2 } from 'lucide-react'
+import { Bookmark, ExternalLink, Loader2, Plus, Rss, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -243,8 +243,14 @@ function MyFeedsContent() {
 												</div>
 												<div className="min-w-0">
 													<h3 className="truncate font-semibold leading-tight">{feed.title}</h3>
-													<p className="mt-0.5 text-xs text-muted-foreground">
-														{feed.postCount}件の記事
+													<p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+														<span>{feed.postCount}件の記事</span>
+														{(feed.bookmarkCount ?? 0) > 0 && (
+															<span className="flex items-center gap-0.5">
+																<Users className="size-3" />
+																{feed.bookmarkCount}
+															</span>
+														)}
 													</p>
 												</div>
 											</div>

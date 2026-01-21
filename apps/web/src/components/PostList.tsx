@@ -84,8 +84,10 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	const sourcePosts = useClientFetch ? apiPosts : allPosts
 
 	// Filter and sort posts client-side
+	// Note: user's own posts are excluded server-side via excludeAuthorId param
 	const filteredPosts = useMemo(() => {
 		let posts = sourcePosts
+
 		if (techOnly && !useClientFetch) {
 			// SSGの場合はクライアントでフィルタ
 			posts = posts.filter((post) => (post.techScore ?? 0) >= 0.3)
@@ -163,6 +165,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 		? (searchQueryResult.data?.pages.flatMap((page) => page.data) ?? [])
 		: visiblePosts
 
+	// API取得中はローディング表示、SSGデータがある場合はそのまま表示
 	const isInitialLoading = useClientFetch && activeQuery.isLoading
 	const showSearchLoading = isSearching && searchQueryResult.isLoading
 	const isLoadingMore = isSearching
