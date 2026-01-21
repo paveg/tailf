@@ -1,7 +1,14 @@
-import { Loader2, Plus, Rss, Trash2 } from 'lucide-react'
+import { Bookmark, ExternalLink, Loader2, Plus, Rss, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useCurrentUser, useDeleteFeed, useMyFeeds, useRegisterFeed } from '@/lib/hooks'
+import {
+	useBookmarkedFeeds,
+	useCurrentUser,
+	useDeleteFeed,
+	useMyFeeds,
+	useRegisterFeed,
+	useUnbookmarkFeed,
+} from '@/lib/hooks'
 import { QueryProvider } from './QueryProvider'
 import {
 	AlertDialog,
@@ -16,14 +23,20 @@ import {
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
 function MyFeedsContent() {
 	const { data: user, isLoading: userLoading } = useCurrentUser()
 	const { data: feedsData, isLoading: feedsLoading } = useMyFeeds()
+	const { data: bookmarkedData, isLoading: bookmarkedLoading } = useBookmarkedFeeds()
 	const deleteFeed = useDeleteFeed()
 	const registerFeed = useRegisterFeed()
+	const unbookmarkFeed = useUnbookmarkFeed()
 	const [feedUrl, setFeedUrl] = useState('')
 	const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+	const [unbookmarkTarget, setUnbookmarkTarget] = useState<{ id: string; title: string } | null>(
+		null,
+	)
 
 	if (userLoading) {
 		return (
@@ -66,6 +79,7 @@ function MyFeedsContent() {
 	}
 
 	const feeds = feedsData?.data ?? []
+	const bookmarkedFeeds = bookmarkedData?.data ?? []
 
 	const handleRegister = async (e: React.FormEvent) => {
 		e.preventDefault()
@@ -103,6 +117,23 @@ function MyFeedsContent() {
 			toast.success('フィードを削除しました')
 		} catch (error) {
 			const message = error instanceof Error ? error.message : '削除に失敗しました'
+			toast.error(message)
+		}
+	}
+
+	const handleUnbookmarkClick = (feedId: string, feedTitle: string) => {
+		setUnbookmarkTarget({ id: feedId, title: feedTitle })
+	}
+
+	const handleUnbookmarkConfirm = async () => {
+		if (!unbookmarkTarget) return
+
+		try {
+			await unbookmarkFeed.mutateAsync(unbookmarkTarget.id)
+			setUnbookmarkTarget(null)
+			toast.success('ブックマークを解除しました')
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'ブックマーク解除に失敗しました'
 			toast.error(message)
 		}
 	}
@@ -153,71 +184,155 @@ function MyFeedsContent() {
 				</div>
 			</div>
 
-			{/* フィード一覧 */}
-			{feedsLoading ? (
-				<div className="flex items-center justify-center py-12">
-					<Loader2 className="size-6 animate-spin text-muted-foreground" />
-				</div>
-			) : feeds.length === 0 ? (
-				<div className="relative overflow-hidden rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/30 p-12 text-center">
-					<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-					<div className="relative">
-						<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-muted">
-							<Rss className="size-8 text-muted-foreground" />
+			{/* タブで登録済み/ブックマーク切り替え */}
+			<Tabs defaultValue="registered" className="w-full">
+				<TabsList className="grid w-full grid-cols-2">
+					<TabsTrigger value="registered" className="gap-2">
+						<Rss className="size-4" />
+						登録済み
+						{feeds.length > 0 && (
+							<span className="rounded-full bg-muted px-2 py-0.5 text-xs">{feeds.length}</span>
+						)}
+					</TabsTrigger>
+					<TabsTrigger value="bookmarked" className="gap-2">
+						<Bookmark className="size-4" />
+						ブックマーク
+						{bookmarkedFeeds.length > 0 && (
+							<span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+								{bookmarkedFeeds.length}
+							</span>
+						)}
+					</TabsTrigger>
+				</TabsList>
+
+				{/* 登録済みフィード */}
+				<TabsContent value="registered" className="mt-6">
+					{feedsLoading ? (
+						<div className="flex items-center justify-center py-12">
+							<Loader2 className="size-6 animate-spin text-muted-foreground" />
 						</div>
-						<p className="text-lg font-medium text-muted-foreground">
-							まだフィードを登録していません
-						</p>
-						<p className="mt-1 text-sm text-muted-foreground/70">
-							上のフォームからRSSフィードURLを入力して登録しましょう
-						</p>
-					</div>
-				</div>
-			) : (
-				<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<h2 className="text-lg font-semibold">登録済みフィード</h2>
-						<span className="rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-							{feeds.length}件
-						</span>
-					</div>
-					<div className="grid gap-4">
-						{feeds.map((feed, index) => (
-							<div
-								key={feed.id}
-								className="group relative overflow-hidden rounded-xl border bg-card p-5 transition-all hover:border-primary/20 hover:shadow-md"
-								style={{ animationDelay: `${index * 50}ms` }}
-							>
-								<div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-								<div className="relative flex items-start justify-between gap-4">
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-3">
-											<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-mono text-sm font-bold text-muted-foreground">
-												{feed.title.charAt(0).toUpperCase()}
-											</div>
-											<div className="min-w-0">
-												<h3 className="truncate font-semibold leading-tight">{feed.title}</h3>
-												<p className="mt-0.5 text-xs text-muted-foreground">
-													{feed.postCount}件の記事
-												</p>
+					) : feeds.length === 0 ? (
+						<div className="relative overflow-hidden rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/30 p-12 text-center">
+							<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+							<div className="relative">
+								<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-muted">
+									<Rss className="size-8 text-muted-foreground" />
+								</div>
+								<p className="text-lg font-medium text-muted-foreground">
+									まだフィードを登録していません
+								</p>
+								<p className="mt-1 text-sm text-muted-foreground/70">
+									上のフォームからRSSフィードURLを入力して登録しましょう
+								</p>
+							</div>
+						</div>
+					) : (
+						<div className="grid gap-4">
+							{feeds.map((feed, index) => (
+								<div
+									key={feed.id}
+									className="group relative overflow-hidden rounded-xl border bg-card p-5 transition-all hover:border-primary/20 hover:shadow-md"
+									style={{ animationDelay: `${index * 50}ms` }}
+								>
+									<div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+									<div className="relative flex items-start justify-between gap-4">
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-3">
+												<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-mono text-sm font-bold text-muted-foreground">
+													{feed.title.charAt(0).toUpperCase()}
+												</div>
+												<div className="min-w-0">
+													<h3 className="truncate font-semibold leading-tight">{feed.title}</h3>
+													<p className="mt-0.5 text-xs text-muted-foreground">
+														{feed.postCount}件の記事
+													</p>
+												</div>
 											</div>
 										</div>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="shrink-0 text-muted-foreground/50 opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+											onClick={() => handleDeleteClick(feed.id, feed.title)}
+											disabled={deleteFeed.isPending}
+										>
+											<Trash2 className="size-4" />
+										</Button>
 									</div>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="shrink-0 text-muted-foreground/50 opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-										onClick={() => handleDeleteClick(feed.id, feed.title)}
-										disabled={deleteFeed.isPending}
-									>
-										<Trash2 className="size-4" />
-									</Button>
 								</div>
+							))}
+						</div>
+					)}
+				</TabsContent>
+
+				{/* ブックマーク済みフィード */}
+				<TabsContent value="bookmarked" className="mt-6">
+					{bookmarkedLoading ? (
+						<div className="flex items-center justify-center py-12">
+							<Loader2 className="size-6 animate-spin text-muted-foreground" />
+						</div>
+					) : bookmarkedFeeds.length === 0 ? (
+						<div className="relative overflow-hidden rounded-2xl border border-dashed border-muted-foreground/20 bg-muted/30 p-12 text-center">
+							<div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+							<div className="relative">
+								<div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-muted">
+									<Bookmark className="size-8 text-muted-foreground" />
+								</div>
+								<p className="text-lg font-medium text-muted-foreground">
+									ブックマークしたフィードはありません
+								</p>
+								<p className="mt-1 text-sm text-muted-foreground/70">
+									フィード一覧でブックマークボタンをクリックして追加しましょう
+								</p>
 							</div>
-						))}
-					</div>
-				</div>
-			)}
+						</div>
+					) : (
+						<div className="grid gap-4">
+							{bookmarkedFeeds.map((feed, index) => (
+								<div
+									key={feed.id}
+									className="group relative overflow-hidden rounded-xl border bg-card p-5 transition-all hover:border-primary/20 hover:shadow-md"
+									style={{ animationDelay: `${index * 50}ms` }}
+								>
+									<div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+									<div className="relative flex items-start justify-between gap-4">
+										<a
+											href={feed.siteUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="min-w-0 flex-1"
+										>
+											<div className="flex items-center gap-3">
+												<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-mono text-sm font-bold text-muted-foreground">
+													{feed.title.charAt(0).toUpperCase()}
+												</div>
+												<div className="min-w-0">
+													<h3 className="truncate font-semibold leading-tight group-hover:text-primary">
+														{feed.title}
+													</h3>
+													<p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+														{new URL(feed.siteUrl).hostname}
+														<ExternalLink className="size-3" />
+													</p>
+												</div>
+											</div>
+										</a>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="shrink-0 text-muted-foreground/50 opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+											onClick={() => handleUnbookmarkClick(feed.id, feed.title)}
+											disabled={unbookmarkFeed.isPending}
+										>
+											<Trash2 className="size-4" />
+										</Button>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+				</TabsContent>
+			</Tabs>
 
 			{/* 削除確認ダイアログ */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -243,6 +358,38 @@ function MyFeedsContent() {
 								</>
 							) : (
 								'削除する'
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* ブックマーク解除確認ダイアログ */}
+			<AlertDialog
+				open={!!unbookmarkTarget}
+				onOpenChange={(open) => !open && setUnbookmarkTarget(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>ブックマークを解除しますか？</AlertDialogTitle>
+						<AlertDialogDescription>
+							「{unbookmarkTarget?.title}」のブックマークを解除します。
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={unbookmarkFeed.isPending}>キャンセル</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleUnbookmarkConfirm}
+							disabled={unbookmarkFeed.isPending}
+							className="bg-destructive text-white hover:bg-destructive/90"
+						>
+							{unbookmarkFeed.isPending ? (
+								<>
+									<Loader2 className="size-4 animate-spin" />
+									解除中...
+								</>
+							) : (
+								'解除する'
 							)}
 						</AlertDialogAction>
 					</AlertDialogFooter>

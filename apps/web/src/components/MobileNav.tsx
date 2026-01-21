@@ -15,7 +15,7 @@ type Theme = 'light' | 'dark' | 'system'
 
 const navLinks = [
 	{ href: '/posts', label: '記事一覧', icon: FileText },
-	{ href: '/blogs', label: 'フィード一覧', icon: Rss },
+	{ href: '/feeds', label: 'フィード一覧', icon: Rss },
 ]
 
 const userNavLinks = [{ href: '/mypage/feeds', label: 'マイフィード', icon: Rss }]

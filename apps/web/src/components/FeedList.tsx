@@ -4,10 +4,17 @@
  * SSG + クライアントフォールバック方式
  */
 import type { Feed } from '@tailf/shared'
-import { Building2, ExternalLink, Rss } from 'lucide-react'
-import { useFeeds } from '@/lib/hooks'
+import { Bookmark, Building2, ExternalLink, Rss } from 'lucide-react'
+import {
+	useBookmarkedFeeds,
+	useBookmarkFeed,
+	useCurrentUser,
+	useFeeds,
+	useUnbookmarkFeed,
+} from '@/lib/hooks'
 import { useBooleanQueryParam } from '@/lib/useQueryParams'
 import { QueryProvider } from './QueryProvider'
+import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle } from './ui/card'
 import { Empty } from './ui/empty'
 import { Skeleton } from './ui/skeleton'
@@ -22,6 +29,12 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const useClientFetch = initialFeeds.length === 0
 	const official = officialOnly ? true : undefined
 	const { data, isLoading } = useFeeds({ perPage: 50, official })
+	const { data: user } = useCurrentUser()
+	const { data: bookmarkedData } = useBookmarkedFeeds()
+	const bookmarkFeed = useBookmarkFeed()
+	const unbookmarkFeed = useUnbookmarkFeed()
+
+	const bookmarkedFeedIds = new Set(bookmarkedData?.data?.map((f) => f.id) ?? [])
 
 	const apiFeeds = data?.data ?? []
 	const feeds = useClientFetch
@@ -29,6 +42,14 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 		: initialFeeds.filter((f) => !officialOnly || f.isOfficial)
 
 	const isInitialLoading = useClientFetch && isLoading
+
+	const handleBookmarkToggle = (feedId: string, isBookmarked: boolean) => {
+		if (isBookmarked) {
+			unbookmarkFeed.mutate(feedId)
+		} else {
+			bookmarkFeed.mutate(feedId)
+		}
+	}
 
 	// フィルタートグル - 常に表示
 	const filterToggle = (
@@ -79,21 +100,41 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 			{/* Feed Grid */}
 			{!isInitialLoading && feeds.length > 0 && (
 				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-					{feeds.map((feed) => (
-						<a
-							key={feed.id}
-							href={feed.siteUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="block"
-						>
-							<Card className="group h-full transition-colors hover:border-primary/20 hover:bg-muted/50">
+					{feeds.map((feed) => {
+						const isBookmarked = bookmarkedFeedIds.has(feed.id)
+						return (
+							<Card
+								key={feed.id}
+								className="group h-full transition-colors hover:border-primary/20 hover:bg-muted/50"
+							>
 								<CardHeader className="gap-2">
 									<div className="flex items-start justify-between gap-2">
-										<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
-											{feed.title}
-										</CardTitle>
-										{feed.isOfficial && <Building2 className="size-4 shrink-0 text-primary" />}
+										<a
+											href={feed.siteUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="min-w-0 flex-1"
+										>
+											<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
+												{feed.title}
+											</CardTitle>
+										</a>
+										<div className="flex shrink-0 items-center gap-1">
+											{feed.isOfficial && <Building2 className="size-4 text-primary" />}
+											{user && feed.authorId !== user.id && (
+												<Button
+													variant="ghost"
+													size="icon"
+													className="size-8"
+													onClick={() => handleBookmarkToggle(feed.id, isBookmarked)}
+													disabled={bookmarkFeed.isPending || unbookmarkFeed.isPending}
+												>
+													<Bookmark
+														className={`size-4 ${isBookmarked ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
+													/>
+												</Button>
+											)}
+										</div>
 									</div>
 									{feed.description && (
 										<p className="line-clamp-2 text-sm text-muted-foreground">{feed.description}</p>
@@ -117,15 +158,20 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 												{feed.author?.name ?? feed.title}
 											</span>
 										</div>
-										<span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground/60">
+										<a
+											href={feed.siteUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+										>
 											{new URL(feed.siteUrl).hostname}
 											<ExternalLink className="size-3" />
-										</span>
+										</a>
 									</div>
 								</CardHeader>
 							</Card>
-						</a>
-					))}
+						)
+					})}
 				</div>
 			)}
 		</div>

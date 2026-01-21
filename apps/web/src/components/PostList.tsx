@@ -14,10 +14,15 @@
  * - visibleCount/filteredPosts のロジックを削除
  */
 import type { PostWithFeed } from '@tailf/shared'
-import { Code2 } from 'lucide-react'
+import { Bookmark, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { SortOption } from '@/lib/api'
-import { useInfinitePosts, useInfiniteSearchPosts } from '@/lib/hooks'
+import {
+	useCurrentUser,
+	useInfinitePosts,
+	useInfiniteSearchPosts,
+	useInfiniteUserFeed,
+} from '@/lib/hooks'
 import { useDebounce } from '@/lib/useDebounce'
 import { useIntersectionObserver } from '@/lib/useIntersectionObserver'
 import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
@@ -44,26 +49,36 @@ const SORT_OPTIONS = ['recent', 'popular'] as const
 function PostListContent({ allPosts }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [techOnly, setTechOnly] = useBooleanQueryParam('tech', true)
+	const [bookmarkOnly, setBookmarkOnly] = useBooleanQueryParam('bookmark', false)
 	const [source, setSource] = useStringQueryParam<SourceFilter>('source', 'all', SOURCE_FILTERS)
 	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
+	const { data: user } = useCurrentUser()
 
 	const isSearching = debouncedQuery.length >= 2
 
 	// SSGデータがない場合（開発環境）はAPIから取得
-	const useClientFetch = allPosts.length === 0
+	const useClientFetch = allPosts.length === 0 || bookmarkOnly
 	// Convert source filter to API parameter: all=undefined, personal=false, official=true
 	const official = source === 'all' ? undefined : source === 'official'
 	const apiQuery = useInfinitePosts(12, techOnly, official, sort)
+	// ブックマークフィルター用のクエリ
+	const bookmarkQuery = useInfiniteUserFeed(12, techOnly)
 
 	// Search uses API (can't pre-build search results)
 	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly, official)
 
-	// APIから取得した記事（開発環境用）
+	// APIから取得した記事
 	const apiPosts = useMemo(() => {
+		if (bookmarkOnly) {
+			return bookmarkQuery.data?.pages.flatMap((page) => page.data) ?? []
+		}
 		return apiQuery.data?.pages.flatMap((page) => page.data) ?? []
-	}, [apiQuery.data])
+	}, [apiQuery.data, bookmarkQuery.data, bookmarkOnly])
+
+	// 使用するクエリ（ブックマークモードかどうかで切り替え）
+	const activeQuery = bookmarkOnly ? bookmarkQuery : apiQuery
 
 	// 使用する記事データ（SSG or API）
 	const sourcePosts = useClientFetch ? apiPosts : allPosts
@@ -96,7 +111,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	}, [filteredPosts, visibleCount, useClientFetch])
 
 	const hasMore = useClientFetch
-		? (apiQuery.hasNextPage ?? false)
+		? (activeQuery.hasNextPage ?? false)
 		: visibleCount < filteredPosts.length
 
 	const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
@@ -110,14 +125,14 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 		if (useClientFetch) {
 			// API経由の場合
-			if (!apiQuery.isFetchingNextPage) {
-				apiQuery.fetchNextPage()
+			if (!activeQuery.isFetchingNextPage) {
+				activeQuery.fetchNextPage()
 			}
 		} else {
 			// SSGの場合
 			setVisibleCount((prev) => prev + POSTS_PER_PAGE)
 		}
-	}, [isIntersecting, hasMore, isSearching, useClientFetch, apiQuery])
+	}, [isIntersecting, hasMore, isSearching, useClientFetch, activeQuery])
 
 	// Load more for search results
 	useEffect(() => {
@@ -141,18 +156,18 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
 	useEffect(() => {
 		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly, source, sort])
+	}, [techOnly, source, sort, bookmarkOnly])
 
 	// Determine which posts to show
 	const displayPosts = isSearching
 		? (searchQueryResult.data?.pages.flatMap((page) => page.data) ?? [])
 		: visiblePosts
 
-	const isInitialLoading = useClientFetch && apiQuery.isLoading
+	const isInitialLoading = useClientFetch && activeQuery.isLoading
 	const showSearchLoading = isSearching && searchQueryResult.isLoading
 	const isLoadingMore = isSearching
 		? searchQueryResult.isFetchingNextPage
-		: useClientFetch && apiQuery.isFetchingNextPage
+		: useClientFetch && activeQuery.isFetchingNextPage
 	const showEndMessage = isSearching
 		? !searchQueryResult.hasNextPage && displayPosts.length > 0
 		: !hasMore && displayPosts.length > 0
@@ -190,19 +205,34 @@ function PostListContent({ allPosts }: PostListContentProps) {
 							</TabsList>
 						</Tabs>
 
-						<ToggleGroup
-							type="single"
-							variant="outline"
-							size="sm"
-							value={techOnly ? 'tech' : ''}
-							onValueChange={(value) => setTechOnly(value === 'tech')}
-							className="shrink-0 sm:order-last sm:ml-auto"
-						>
-							<ToggleGroupItem value="tech" className="h-9 px-3 text-sm sm:h-8 sm:text-xs">
-								<Code2 className={techOnly ? 'text-primary' : ''} />
-								技術記事
-							</ToggleGroupItem>
-						</ToggleGroup>
+						<div className="flex shrink-0 items-center gap-1 sm:order-last sm:ml-auto">
+							{user && (
+								<ToggleGroup
+									type="single"
+									variant="outline"
+									size="sm"
+									value={bookmarkOnly ? 'bookmark' : ''}
+									onValueChange={(value) => setBookmarkOnly(value === 'bookmark')}
+								>
+									<ToggleGroupItem value="bookmark" className="h-9 px-3 text-sm sm:h-8 sm:text-xs">
+										<Bookmark className={bookmarkOnly ? 'fill-primary text-primary' : ''} />
+										ブックマーク
+									</ToggleGroupItem>
+								</ToggleGroup>
+							)}
+							<ToggleGroup
+								type="single"
+								variant="outline"
+								size="sm"
+								value={techOnly ? 'tech' : ''}
+								onValueChange={(value) => setTechOnly(value === 'tech')}
+							>
+								<ToggleGroupItem value="tech" className="h-9 px-3 text-sm sm:h-8 sm:text-xs">
+									<Code2 className={techOnly ? 'text-primary' : ''} />
+									技術記事
+								</ToggleGroupItem>
+							</ToggleGroup>
+						</div>
 					</div>
 
 					{/* Row 2 (mobile): Source filter */}
