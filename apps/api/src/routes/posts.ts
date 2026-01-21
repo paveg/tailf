@@ -57,7 +57,10 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 	if (cursor) {
 		if (sort === 'popular') {
 			// For popular sort, cursor is "bookmarkCount:publishedAt" format
-			const [countStr, dateStr] = cursor.split(':')
+			// Use indexOf to handle ISO date strings which contain colons
+			const colonIndex = cursor.indexOf(':')
+			const countStr = cursor.slice(0, colonIndex)
+			const dateStr = cursor.slice(colonIndex + 1)
 			const cursorCount = Number.parseInt(countStr, 10)
 			const cursorDate = new Date(dateStr)
 			// Posts with lower bookmark count, or same count but older
