@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { feeds, follows, posts } from '../db/schema'
+import { feedBookmarks, feeds, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { fetchAndParseFeed } from '../services/rss'
 import { calculateTechScoreWithEmbedding } from '../services/tech-score'
@@ -246,27 +246,29 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 	}
 })
 
-// Follow a feed
-feedsRoute.post('/:id/follow', requireAuth, async (c) => {
+// Bookmark a feed
+feedsRoute.post('/:id/bookmark', requireAuth, async (c) => {
 	const feedId = c.req.param('id')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
 	try {
-		await db.insert(follows).values({ userId, feedId }).onConflictDoNothing()
+		await db.insert(feedBookmarks).values({ userId, feedId }).onConflictDoNothing()
 		return c.json({ success: true })
 	} catch {
-		return c.json({ error: 'Failed to follow' }, 500)
+		return c.json({ error: 'Failed to bookmark' }, 500)
 	}
 })
 
-// Unfollow a feed
-feedsRoute.delete('/:id/follow', requireAuth, async (c) => {
+// Remove bookmark from a feed
+feedsRoute.delete('/:id/bookmark', requireAuth, async (c) => {
 	const feedId = c.req.param('id')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	await db.delete(follows).where(and(eq(follows.userId, userId), eq(follows.feedId, feedId)))
+	await db
+		.delete(feedBookmarks)
+		.where(and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)))
 	return c.json({ success: true })
 })
 
@@ -295,7 +297,7 @@ feedsRoute.delete('/:id', requireAuth, async (c) => {
 		// Use batch for atomic delete (D1 doesn't support Drizzle transactions)
 		await db.batch([
 			db.delete(posts).where(eq(posts.feedId, feedId)),
-			db.delete(follows).where(eq(follows.feedId, feedId)),
+			db.delete(feedBookmarks).where(eq(feedBookmarks.feedId, feedId)),
 			db.delete(feeds).where(eq(feeds.id, feedId)),
 		])
 

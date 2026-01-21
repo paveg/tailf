@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { follows, posts } from '../db/schema'
+import { feedBookmarks, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { buildCursorResponse } from '../utils/pagination'
 
@@ -29,21 +29,21 @@ type Variables = {
 	userId: string
 }
 
-// User's personalized feed (posts from followed feeds)
+// User's personalized feed (posts from bookmarked feeds)
 export const userFeedRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-// Get personalized feed (posts from followed feeds) - cursor-based pagination
+// Get personalized feed (posts from bookmarked feeds) - cursor-based pagination
 userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async (c) => {
 	const { cursor, limit, techOnly } = c.req.valid('query')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	// Get followed feed IDs
-	const userFollows = await db.query.follows.findMany({
-		where: eq(follows.userId, userId),
+	// Get bookmarked feed IDs
+	const userBookmarks = await db.query.feedBookmarks.findMany({
+		where: eq(feedBookmarks.userId, userId),
 	})
 
-	const feedIds = userFollows.map((f) => f.feedId)
+	const feedIds = userBookmarks.map((b) => b.feedId)
 
 	if (feedIds.length === 0) {
 		return c.json({
@@ -69,19 +69,19 @@ userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async 
 	return c.json(buildCursorResponse(result, limit))
 })
 
-// Get user's followed feeds
-userFeedRoute.get('/following', requireAuth, async (c) => {
+// Get user's bookmarked feeds
+userFeedRoute.get('/bookmarks', requireAuth, async (c) => {
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	const userFollows = await db.query.follows.findMany({
-		where: eq(follows.userId, userId),
+	const userBookmarks = await db.query.feedBookmarks.findMany({
+		where: eq(feedBookmarks.userId, userId),
 		with: {
 			feed: true,
 		},
 	})
 
 	return c.json({
-		data: userFollows.map((f) => f.feed),
+		data: userBookmarks.map((b) => b.feed),
 	})
 })

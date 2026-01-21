@@ -162,12 +162,12 @@ export async function registerFeed(params: RegisterFeedParams): Promise<Register
 	})
 }
 
-export async function followFeed(feedId: string): Promise<void> {
-	await fetchApi(`/feeds/${feedId}/follow`, { method: 'POST' })
+export async function bookmarkFeed(feedId: string): Promise<void> {
+	await fetchApi(`/feeds/${feedId}/bookmark`, { method: 'POST' })
 }
 
-export async function unfollowFeed(feedId: string): Promise<void> {
-	await fetchApi(`/feeds/${feedId}/follow`, { method: 'DELETE' })
+export async function unbookmarkFeed(feedId: string): Promise<void> {
+	await fetchApi(`/feeds/${feedId}/bookmark`, { method: 'DELETE' })
 }
 
 export interface FeedWithPostCount extends Feed {
@@ -192,6 +192,6 @@ export async function getUserFeed(
 	return fetchApi<CursorResponse<PostWithFeed[]>>(`/feed${buildQueryString(params)}`)
 }
 
-export async function getFollowingFeeds(): Promise<ApiResponse<Feed[]>> {
-	return fetchApi<ApiResponse<Feed[]>>('/feed/following')
+export async function getBookmarkedFeeds(): Promise<ApiResponse<Feed[]>> {
+	return fetchApi<ApiResponse<Feed[]>>('/feed/bookmarks')
 }

@@ -77,9 +77,9 @@ export const posts = sqliteTable(
 	],
 )
 
-// Follows table (many-to-many: users <-> feeds)
-export const follows = sqliteTable(
-	'follows',
+// Feed bookmarks table (many-to-many: users <-> feeds)
+export const feedBookmarks = sqliteTable(
+	'feed_bookmarks',
 	{
 		userId: text('user_id')
 			.notNull()
@@ -106,7 +106,7 @@ export const sessions = sqliteTable('sessions', {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
 	feeds: many(feeds),
-	follows: many(follows),
+	bookmarks: many(feedBookmarks),
 	sessions: many(sessions),
 }))
 
@@ -116,7 +116,7 @@ export const feedsRelations = relations(feeds, ({ one, many }) => ({
 		references: [users.id],
 	}),
 	posts: many(posts),
-	followers: many(follows),
+	bookmarkedBy: many(feedBookmarks),
 }))
 
 export const postsRelations = relations(posts, ({ one }) => ({
@@ -126,13 +126,13 @@ export const postsRelations = relations(posts, ({ one }) => ({
 	}),
 }))
 
-export const followsRelations = relations(follows, ({ one }) => ({
+export const feedBookmarksRelations = relations(feedBookmarks, ({ one }) => ({
 	user: one(users, {
-		fields: [follows.userId],
+		fields: [feedBookmarks.userId],
 		references: [users.id],
 	}),
 	feed: one(feeds, {
-		fields: [follows.feedId],
+		fields: [feedBookmarks.feedId],
 		references: [feeds.id],
 	}),
 }))

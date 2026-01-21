@@ -5,14 +5,14 @@ import type { PostWithFeed } from '@tailf/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CursorResponse, SortOption } from './api'
 import {
+	bookmarkFeed,
 	deleteFeed,
-	followFeed,
 	type GetFeedsParams,
 	type GetPostsParams,
+	getBookmarkedFeeds,
 	getCurrentUser,
 	getFeedById,
 	getFeeds,
-	getFollowingFeeds,
 	getMyFeeds,
 	getPosts,
 	getRankingPosts,
@@ -22,7 +22,7 @@ import {
 	registerFeed,
 	type SearchPostsParams,
 	searchPosts,
-	unfollowFeed,
+	unbookmarkFeed,
 } from './api'
 
 /**
@@ -85,7 +85,7 @@ export const queryKeys = {
 	userFeed: {
 		posts: (limit?: number, techOnly?: boolean) =>
 			['userFeed', 'posts', { limit, techOnly }] as const,
-		following: ['userFeed', 'following'] as const,
+		bookmarked: ['userFeed', 'bookmarked'] as const,
 	},
 }
 
@@ -193,10 +193,10 @@ export function useUserFeed(params?: GetPostsParams) {
 	})
 }
 
-export function useFollowingFeeds() {
+export function useBookmarkedFeeds() {
 	return useQuery({
-		queryKey: queryKeys.userFeed.following,
-		queryFn: getFollowingFeeds,
+		queryKey: queryKeys.userFeed.bookmarked,
+		queryFn: getBookmarkedFeeds,
 	})
 }
 
@@ -213,27 +213,27 @@ export function useRegisterFeed() {
 	})
 }
 
-// Follow/Unfollow
-export function useFollowFeed() {
+// Bookmark/Unbookmark
+export function useBookmarkFeed() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: followFeed,
+		mutationFn: bookmarkFeed,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
-			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.following })
+			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.bookmarked })
 		},
 	})
 }
 
-export function useUnfollowFeed() {
+export function useUnbookmarkFeed() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: unfollowFeed,
+		mutationFn: unbookmarkFeed,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
-			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.following })
+			queryClient.invalidateQueries({ queryKey: queryKeys.userFeed.bookmarked })
 		},
 	})
 }
