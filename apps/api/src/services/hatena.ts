@@ -8,6 +8,7 @@
 import { eq, gte, isNull, or } from 'drizzle-orm'
 import type { Database } from '../db'
 import { posts } from '../db/schema'
+import { DURATIONS } from '../utils/date'
 
 const HATENA_BOOKMARK_API = 'https://bookmark.hatenaapis.com/count/entry'
 
@@ -62,7 +63,7 @@ export async function getBookmarkCounts(
  */
 export async function updateRecentBookmarkCounts(db: Database): Promise<{ updated: number }> {
 	const now = new Date()
-	const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+	const weekAgo = new Date(now.getTime() - DURATIONS.WEEK_MS)
 
 	// Get posts that need bookmark count update
 	// Limit to 30 per run to avoid timeout (Workers has 30s limit)

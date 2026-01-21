@@ -1,6 +1,7 @@
 import { eq, gte } from 'drizzle-orm'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { DURATIONS } from '../utils/date'
 import { generateId } from '../utils/id'
 import { getBookmarkCount } from './hatena'
 import { calculateTechScore, calculateTechScoreWithEmbedding } from './tech-score'
@@ -11,6 +12,32 @@ interface RssItem {
 	description?: string
 	pubDate?: string
 	thumbnail?: string
+}
+
+/**
+ * Extract tag content from XML, handling CDATA sections
+ * Tries CDATA first, falls back to simple tag content
+ */
+function getTagContent(tag: string, content: string): string | undefined {
+	const cdataMatch = content.match(
+		new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i'),
+	)
+	if (cdataMatch) return cdataMatch[1].trim()
+
+	const simpleMatch = content.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
+	return simpleMatch?.[1].trim()
+}
+
+/**
+ * Extract href from link tag (for Atom feeds)
+ * Prefers rel="alternate" links, falls back to any link with href
+ */
+function getLinkHref(content: string): string | undefined {
+	const altMatch = content.match(/<link[^>]+href="([^"]+)"[^>]*rel="alternate"/i)
+	if (altMatch) return altMatch[1]
+
+	const simpleMatch = content.match(/<link[^>]+href="([^"]+)"/i)
+	return simpleMatch?.[1]
 }
 
 /**
@@ -38,23 +65,13 @@ export interface RssFeed {
 }
 
 // Simple XML parser for RSS feeds (Cloudflare Workers compatible)
-function parseRss(xml: string): RssFeed | null {
+export function parseRss(xml: string): RssFeed | null {
 	try {
 		// Extract channel info
 		const channelMatch = xml.match(/<channel>([\s\S]*?)<\/channel>/i)
 		if (!channelMatch) return null
 
 		const channel = channelMatch[1]
-
-		const getTagContent = (tag: string, content: string): string | undefined => {
-			const match = content.match(
-				new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i'),
-			)
-			if (match) return match[1].trim()
-
-			const simpleMatch = content.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
-			return simpleMatch ? simpleMatch[1].trim() : undefined
-		}
 
 		// Parse items
 		const items: RssItem[] = []
@@ -101,20 +118,8 @@ function parseRss(xml: string): RssFeed | null {
 }
 
 // Also support Atom feeds
-function parseAtom(xml: string): RssFeed | null {
+export function parseAtom(xml: string): RssFeed | null {
 	try {
-		const getTagContent = (tag: string, content: string): string | undefined => {
-			const match = content.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
-			return match ? match[1].trim() : undefined
-		}
-
-		const getLinkHref = (content: string): string | undefined => {
-			const match = content.match(/<link[^>]+href="([^"]+)"[^>]*rel="alternate"/i)
-			if (match) return match[1]
-			const simpleMatch = content.match(/<link[^>]+href="([^"]+)"/i)
-			return simpleMatch ? simpleMatch[1] : undefined
-		}
-
 		const title = getTagContent('title', xml) || 'Unknown'
 		const description = getTagContent('subtitle', xml)
 		const link = getLinkHref(xml) || ''
@@ -147,7 +152,7 @@ function parseAtom(xml: string): RssFeed | null {
 	}
 }
 
-function parseFeed(xml: string): RssFeed | null {
+export function parseFeed(xml: string): RssFeed | null {
 	if (xml.includes('<feed') && xml.includes('xmlns="http://www.w3.org/2005/Atom"')) {
 		return parseAtom(xml)
 	}
@@ -249,7 +254,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 async function updateHatenaBookmarkCounts(db: Database): Promise<void> {
 	console.log('[Hatena] Starting bookmark count update...')
 
-	const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+	const oneWeekAgo = new Date(Date.now() - DURATIONS.WEEK_MS)
 
 	const recentPosts = await db.query.posts.findMany({
 		where: gte(posts.publishedAt, oneWeekAgo),

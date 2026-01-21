@@ -5,38 +5,12 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { blogs, type FeedType, follows, posts } from '../db/schema'
+import { blogs, follows, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { fetchAndParseFeed } from '../services/rss'
 import { calculateTechScoreWithEmbedding } from '../services/tech-score'
 import { generateId } from '../utils/id'
-import { normalizeUrl } from '../utils/url'
-
-/**
- * Detect feed type from URL
- */
-function detectFeedType(feedUrl: string): FeedType {
-	const url = new URL(feedUrl)
-	const hostname = url.hostname.toLowerCase()
-
-	// SpeakerDeck: speakerdeck.com/{username}.rss
-	if (hostname === 'speakerdeck.com' || hostname === 'www.speakerdeck.com') {
-		return 'slide'
-	}
-
-	// SlideShare: uses different RSS patterns
-	if (hostname.includes('slideshare.net')) {
-		return 'slide'
-	}
-
-	// Docswell: Japanese slide service
-	if (hostname.includes('docswell.com')) {
-		return 'slide'
-	}
-
-	// Default to blog
-	return 'blog'
-}
+import { detectFeedType, normalizeUrl } from '../utils/url'
 
 type Variables = {
 	db: Database

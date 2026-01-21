@@ -25,18 +25,19 @@ export function useQueryParam<T extends ParamValue>(
 		parse ??
 		((v: string | null): T => {
 			if (v === null) return defaultValue
-			if (typeof defaultValue === 'boolean') return (v === 'true') as T
-			if (typeof defaultValue === 'number') return Number(v) as T
-			return v as T
+			switch (typeof defaultValue) {
+				case 'boolean':
+					return (v === 'true') as T
+				case 'number':
+					return Number(v) as T
+				default:
+					return v as T
+			}
 		})
 
 	const serializeValue =
 		serialize ??
-		((v: T): string | undefined => {
-			if (v === defaultValue) return undefined
-			if (v === undefined) return undefined
-			return String(v)
-		})
+		((v: T): string | undefined => (v === defaultValue || v === undefined ? undefined : String(v)))
 
 	// 初期値はdefaultValueを使用（SSRとの整合性のため）
 	const [value, setValue] = useState<T>(defaultValue)

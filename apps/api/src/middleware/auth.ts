@@ -3,6 +3,7 @@ import type { Context, Next } from 'hono'
 import { deleteCookie, getCookie } from 'hono/cookie'
 import type { Database } from '../db'
 import { sessions } from '../db/schema'
+import { isSessionExpired } from '../utils/date'
 
 type AuthEnv = {
 	Variables: {
@@ -26,7 +27,7 @@ export async function requireAuth(c: Context<AuthEnv>, next: Next) {
 		where: eq(sessions.id, sessionId),
 	})
 
-	if (!session || session.expiresAt < new Date()) {
+	if (!session || isSessionExpired(session.expiresAt)) {
 		deleteCookie(c, 'session')
 		return c.json({ error: 'Session expired' }, 401)
 	}

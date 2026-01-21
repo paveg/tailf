@@ -4,6 +4,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { sessions, users } from '../db/schema'
+import { DURATIONS, isSessionExpired } from '../utils/date'
 import { generateId } from '../utils/id'
 
 type Variables = {
@@ -93,7 +94,7 @@ authRoute.get('/github/callback', async (c) => {
 
 	// Create session
 	const sessionId = generateId()
-	const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+	const expiresAt = new Date(Date.now() + DURATIONS.SESSION_EXPIRY_MS)
 
 	await db.insert(sessions).values({
 		id: sessionId,
@@ -128,7 +129,7 @@ authRoute.get('/me', async (c) => {
 		with: { user: true },
 	})
 
-	if (!session || session.expiresAt < new Date()) {
+	if (!session || isSessionExpired(session.expiresAt)) {
 		deleteCookie(c, 'session')
 		return c.json({ data: null })
 	}

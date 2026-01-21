@@ -19,6 +19,12 @@ import {
 
 type Theme = 'light' | 'dark' | 'system'
 
+const THEME_ICONS = {
+	light: Sun,
+	dark: Moon,
+	system: Monitor,
+} as const
+
 function useTheme() {
 	const [theme, setTheme] = useState<Theme>('system')
 	const [mounted, setMounted] = useState(false)
@@ -66,6 +72,37 @@ function useTheme() {
 	return { theme, setTheme, mounted }
 }
 
+function ThemeSubMenu({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+	const ThemeIcon = THEME_ICONS[theme]
+	return (
+		<DropdownMenuSub>
+			<DropdownMenuSubTrigger>
+				<ThemeIcon className="mr-2 size-4" />
+				テーマ
+			</DropdownMenuSubTrigger>
+			<DropdownMenuPortal>
+				<DropdownMenuSubContent>
+					<DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
+						<Sun className="mr-2 size-4" />
+						ライト
+						{theme === 'light' && <span className="ml-auto">✓</span>}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
+						<Moon className="mr-2 size-4" />
+						ダーク
+						{theme === 'dark' && <span className="ml-auto">✓</span>}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
+						<Monitor className="mr-2 size-4" />
+						システム
+						{theme === 'system' && <span className="ml-auto">✓</span>}
+					</DropdownMenuItem>
+				</DropdownMenuSubContent>
+			</DropdownMenuPortal>
+		</DropdownMenuSub>
+	)
+}
+
 function UserMenuContent() {
 	const { data: user, isLoading } = useCurrentUser()
 	const logout = useLogout()
@@ -95,37 +132,7 @@ function UserMenuContent() {
 						</a>
 					</DropdownMenuItem>
 					<DropdownMenuSeparator />
-					<DropdownMenuSub>
-						<DropdownMenuSubTrigger>
-							{theme === 'dark' ? (
-								<Moon className="mr-2 size-4" />
-							) : theme === 'light' ? (
-								<Sun className="mr-2 size-4" />
-							) : (
-								<Monitor className="mr-2 size-4" />
-							)}
-							テーマ
-						</DropdownMenuSubTrigger>
-						<DropdownMenuPortal>
-							<DropdownMenuSubContent>
-								<DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
-									<Sun className="mr-2 size-4" />
-									ライト
-									{theme === 'light' && <span className="ml-auto">✓</span>}
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
-									<Moon className="mr-2 size-4" />
-									ダーク
-									{theme === 'dark' && <span className="ml-auto">✓</span>}
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
-									<Monitor className="mr-2 size-4" />
-									システム
-									{theme === 'system' && <span className="ml-auto">✓</span>}
-								</DropdownMenuItem>
-							</DropdownMenuSubContent>
-						</DropdownMenuPortal>
-					</DropdownMenuSub>
+					<ThemeSubMenu theme={theme} setTheme={setTheme} />
 				</DropdownMenuContent>
 			</DropdownMenu>
 		)
@@ -158,37 +165,7 @@ function UserMenuContent() {
 					</a>
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
-				<DropdownMenuSub>
-					<DropdownMenuSubTrigger>
-						{theme === 'dark' ? (
-							<Moon className="mr-2 size-4" />
-						) : theme === 'light' ? (
-							<Sun className="mr-2 size-4" />
-						) : (
-							<Monitor className="mr-2 size-4" />
-						)}
-						テーマ
-					</DropdownMenuSubTrigger>
-					<DropdownMenuPortal>
-						<DropdownMenuSubContent>
-							<DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
-								<Sun className="mr-2 size-4" />
-								ライト
-								{theme === 'light' && <span className="ml-auto">✓</span>}
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
-								<Moon className="mr-2 size-4" />
-								ダーク
-								{theme === 'dark' && <span className="ml-auto">✓</span>}
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
-								<Monitor className="mr-2 size-4" />
-								システム
-								{theme === 'system' && <span className="ml-auto">✓</span>}
-							</DropdownMenuItem>
-						</DropdownMenuSubContent>
-					</DropdownMenuPortal>
-				</DropdownMenuSub>
+				<ThemeSubMenu theme={theme} setTheme={setTheme} />
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onClick={() => logout.mutate()}
