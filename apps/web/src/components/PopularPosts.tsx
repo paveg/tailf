@@ -151,34 +151,65 @@ function PopularPostsContent() {
 	const { data, isLoading, error } = useRankingPosts('week', POPULAR_POSTS_LIMIT, true)
 
 	const posts = (data?.data ?? []) as (PostWithFeed & { hatenaBookmarkCount?: number | null })[]
+	const meta = data?.meta as { period?: string; fallback?: boolean } | undefined
+	const isMonthFallback = meta?.period === 'month' && meta?.fallback
 
 	if (isLoading) {
-		return <PopularPostsSkeleton />
+		return (
+			<>
+				<SectionHeader period="week" />
+				<PopularPostsSkeleton />
+			</>
+		)
 	}
 
 	if (error) {
 		return (
-			<div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
-				<TrendingUp className="mx-auto mb-2 size-8 opacity-50" />
-				<p>人気記事の取得に失敗しました</p>
-			</div>
+			<>
+				<SectionHeader period="week" />
+				<div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+					<TrendingUp className="mx-auto mb-2 size-8 opacity-50" />
+					<p>人気記事の取得に失敗しました</p>
+				</div>
+			</>
 		)
 	}
 
 	if (posts.length === 0) {
 		return (
-			<div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
-				<TrendingUp className="mx-auto mb-2 size-8 opacity-50" />
-				<p>まだ人気記事がありません</p>
-			</div>
+			<>
+				<SectionHeader period="week" />
+				<div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+					<TrendingUp className="mx-auto mb-2 size-8 opacity-50" />
+					<p>まだ人気記事がありません</p>
+				</div>
+			</>
 		)
 	}
 
 	return (
-		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-			{posts.map((post, index) => (
-				<RankingCard key={post.id} post={post} rank={index + 1} />
-			))}
+		<>
+			<SectionHeader period={isMonthFallback ? 'month' : 'week'} />
+			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+				{posts.map((post, index) => (
+					<RankingCard key={post.id} post={post} rank={index + 1} />
+				))}
+			</div>
+		</>
+	)
+}
+
+function SectionHeader({ period }: { period: 'week' | 'month' }) {
+	const title = period === 'week' ? '今週の人気記事' : '今月の人気記事'
+	return (
+		<div className="mb-6 flex items-center gap-3">
+			<div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg shadow-orange-500/25">
+				<Flame className="size-5 text-white" />
+			</div>
+			<div>
+				<h2 className="text-xl font-bold sm:text-2xl">{title}</h2>
+				<p className="text-xs text-muted-foreground">はてなブックマーク数でランキング</p>
+			</div>
 		</div>
 	)
 }
@@ -186,17 +217,6 @@ function PopularPostsContent() {
 export function PopularPosts() {
 	return (
 		<section>
-			{/* Section Header */}
-			<div className="mb-6 flex items-center gap-3">
-				<div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg shadow-orange-500/25">
-					<Flame className="size-5 text-white" />
-				</div>
-				<div>
-					<h2 className="text-xl font-bold sm:text-2xl">今週の人気記事</h2>
-					<p className="text-xs text-muted-foreground">はてなブックマーク数でランキング</p>
-				</div>
-			</div>
-
 			<QueryProvider>
 				<PopularPostsContent />
 			</QueryProvider>

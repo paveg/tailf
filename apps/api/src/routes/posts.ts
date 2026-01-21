@@ -170,37 +170,48 @@ postsRoute.get(
 		}),
 	),
 	async (c) => {
-		const { period, limit, techOnly } = c.req.valid('query')
+		const { period: requestedPeriod, limit, techOnly } = c.req.valid('query')
 		const db = c.get('db')
 
-		// Calculate date threshold
 		const now = new Date()
-		const threshold = new Date(
-			period === 'week'
-				? now.getTime() - 7 * 24 * 60 * 60 * 1000
-				: now.getTime() - 30 * 24 * 60 * 60 * 1000,
-		)
-
-		const dateCondition = gte(posts.publishedAt, threshold)
 		const techCondition = techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined
-		// Only include posts with at least 1 bookmark for ranking
 		const bookmarkCondition = gt(posts.hatenaBookmarkCount, 0)
 
-		const conditions = [dateCondition, bookmarkCondition, techCondition].filter(Boolean)
+		// Helper to fetch ranking for a given period
+		const fetchRanking = async (period: 'week' | 'month') => {
+			const threshold = new Date(
+				period === 'week'
+					? now.getTime() - 7 * 24 * 60 * 60 * 1000
+					: now.getTime() - 30 * 24 * 60 * 60 * 1000,
+			)
+			const dateCondition = gte(posts.publishedAt, threshold)
+			const conditions = [dateCondition, bookmarkCondition, techCondition].filter(Boolean)
 
-		const result = await db.query.posts.findMany({
-			where: and(...conditions),
-			limit,
-			// Sort by Hatena bookmark count (descending), then by published date
-			orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
-			with: {
-				feed: { with: { author: true } },
-			},
-		})
+			return db.query.posts.findMany({
+				where: and(...conditions),
+				limit,
+				orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
+				with: { feed: { with: { author: true } } },
+			})
+		}
+
+		// Try requested period first
+		let result = await fetchRanking(requestedPeriod)
+		let actualPeriod = requestedPeriod
+
+		// Fallback: if week returns empty, try month
+		if (result.length === 0 && requestedPeriod === 'week') {
+			result = await fetchRanking('month')
+			actualPeriod = 'month'
+		}
 
 		return c.json({
 			data: result,
-			meta: { period },
+			meta: {
+				period: actualPeriod,
+				requestedPeriod,
+				fallback: actualPeriod !== requestedPeriod,
+			},
 		})
 	},
 )
