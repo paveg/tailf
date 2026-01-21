@@ -26,6 +26,12 @@ export interface Feed {
 	updatedAt: Date
 }
 
+// Feed with author (for API responses with relations)
+export interface FeedWithAuthor extends Feed {
+	author: User | null
+	bookmarkCount?: number
+}
+
 // Post
 export interface Post {
 	id: string

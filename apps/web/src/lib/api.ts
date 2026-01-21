@@ -2,7 +2,15 @@
  * API client for tailf backend
  */
 
-import type { ApiError, ApiResponse, Feed, Post, PostWithFeed, User } from '@tailf/shared'
+import type {
+	ApiError,
+	ApiResponse,
+	Feed,
+	FeedWithAuthor,
+	Post,
+	PostWithFeed,
+	User,
+} from '@tailf/shared'
 
 const API_BASE = '/api'
 
@@ -138,8 +146,10 @@ export interface GetFeedsParams {
 	official?: boolean
 }
 
-export async function getFeeds(params: GetFeedsParams = {}): Promise<ApiResponse<Feed[]>> {
-	return fetchApi<ApiResponse<Feed[]>>(`/feeds${buildQueryString(params)}`)
+export async function getFeeds(
+	params: GetFeedsParams = {},
+): Promise<ApiResponse<FeedWithAuthor[]>> {
+	return fetchApi<ApiResponse<FeedWithAuthor[]>>(`/feeds${buildQueryString(params)}`)
 }
 
 export async function getFeedById(id: string): Promise<ApiResponse<Feed>> {

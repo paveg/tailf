@@ -3,8 +3,8 @@
  *
  * SSG + クライアントフォールバック方式
  */
-import type { Feed } from '@tailf/shared'
-import { Bookmark, Building2, ExternalLink, Rss } from 'lucide-react'
+import type { FeedWithAuthor } from '@tailf/shared'
+import { Bookmark, Building2, ExternalLink, Presentation, Rss, Users } from 'lucide-react'
 import {
 	useBookmarkedFeeds,
 	useBookmarkFeed,
@@ -21,7 +21,7 @@ import { Skeleton } from './ui/skeleton'
 import { Toggle } from './ui/toggle'
 
 interface FeedListContentProps {
-	initialFeeds: Feed[]
+	initialFeeds: FeedWithAuthor[]
 }
 
 function FeedListContent({ initialFeeds }: FeedListContentProps) {
@@ -37,7 +37,7 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const bookmarkedFeedIds = new Set(bookmarkedData?.data?.map((f) => f.id) ?? [])
 
 	const apiFeeds = data?.data ?? []
-	const feeds = useClientFetch
+	const feeds: FeedWithAuthor[] = useClientFetch
 		? apiFeeds
 		: initialFeeds.filter((f) => !officialOnly || f.isOfficial)
 
@@ -102,6 +102,7 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{feeds.map((feed) => {
 						const isBookmarked = bookmarkedFeedIds.has(feed.id)
+						const bookmarkCount = feed.bookmarkCount ?? 0
 						return (
 							<Card
 								key={feed.id}
@@ -120,7 +121,6 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 											</CardTitle>
 										</a>
 										<div className="flex shrink-0 items-center gap-1">
-											{feed.isOfficial && <Building2 className="size-4 text-primary" />}
 											{user && feed.authorId !== user.id && (
 												<Button
 													variant="ghost"
@@ -141,6 +141,7 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 									)}
 									<div className="flex items-center justify-between gap-2 overflow-hidden">
 										<div className="flex min-w-0 flex-1 items-center gap-2">
+											{feed.isOfficial && <Building2 className="size-4 shrink-0 text-primary" />}
 											{feed.author && (
 												<img
 													src={
@@ -158,6 +159,23 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 												{feed.author?.name ?? feed.title}
 											</span>
 										</div>
+										<div className="flex shrink-0 items-center gap-2">
+											{/* Feed type badge */}
+											{feed.type === 'slide' && (
+												<span className="flex items-center gap-1 text-xs text-muted-foreground">
+													<Presentation className="size-3" />
+												</span>
+											)}
+											{/* Bookmark count */}
+											{bookmarkCount > 0 && (
+												<span className="flex items-center gap-1 text-xs text-muted-foreground">
+													<Users className="size-3" />
+													{bookmarkCount}
+												</span>
+											)}
+										</div>
+									</div>
+									<div className="flex items-center justify-end">
 										<a
 											href={feed.siteUrl}
 											target="_blank"
@@ -179,7 +197,7 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 }
 
 interface FeedListProps {
-	initialFeeds?: Feed[]
+	initialFeeds?: FeedWithAuthor[]
 }
 
 export function FeedList({ initialFeeds = [] }: FeedListProps) {

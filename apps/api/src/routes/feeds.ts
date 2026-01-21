@@ -1,6 +1,6 @@
 import { vValidator } from '@hono/valibot-validator'
 import { createFeedSchema } from '@tailf/shared'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -52,8 +52,31 @@ feedsRoute.get(
 			},
 		})
 
+		// Get bookmark counts for all feeds
+		const feedIds = result.map((f) => f.id)
+		const bookmarkCounts =
+			feedIds.length > 0
+				? await db
+						.select({
+							feedId: feedBookmarks.feedId,
+							count: count(),
+						})
+						.from(feedBookmarks)
+						.where(inArray(feedBookmarks.feedId, feedIds))
+						.groupBy(feedBookmarks.feedId)
+				: []
+
+		// Create a map for quick lookup
+		const countMap = new Map(bookmarkCounts.map((bc) => [bc.feedId, bc.count]))
+
+		// Add bookmark count to each feed
+		const feedsWithBookmarkCount = result.map((feed) => ({
+			...feed,
+			bookmarkCount: countMap.get(feed.id) ?? 0,
+		}))
+
 		return c.json({
-			data: result,
+			data: feedsWithBookmarkCount,
 			meta: { page, perPage },
 		})
 	},
