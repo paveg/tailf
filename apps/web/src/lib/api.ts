@@ -104,6 +104,7 @@ export interface GetPostsParams {
 	techOnly?: boolean
 	official?: boolean
 	sort?: SortOption
+	excludeAuthorId?: string
 }
 
 export async function getPosts(

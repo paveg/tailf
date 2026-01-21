@@ -230,7 +230,47 @@ describe('parseRss', () => {
 		const result = parseRss(xml)
 
 		expect(result?.items[0].title).toBe('React & TypeScript入門')
-		expect(result?.items[0].description).toBe('<p>Description</p>')
+		// HTML entities are decoded, then tags are stripped
+		expect(result?.items[0].description).toBe('Description')
+	})
+
+	it('strips XML tags from description', () => {
+		const xml = `<?xml version="1.0"?>
+			<rss version="2.0">
+				<channel>
+					<title>Blog</title>
+					<link>https://example.com</link>
+					<item>
+						<title>Post</title>
+						<link>https://example.com/post</link>
+						<description><![CDATA[<link>https://example.com</link> <atom:link rel="self" /> Some text]]></description>
+					</item>
+				</channel>
+			</rss>`
+
+		const result = parseRss(xml)
+
+		// XML tags should be stripped, leaving only text content
+		expect(result?.items[0].description).toBe('https://example.com Some text')
+	})
+
+	it('handles description with mixed HTML and text', () => {
+		const xml = `<?xml version="1.0"?>
+			<rss version="2.0">
+				<channel>
+					<title>Blog</title>
+					<link>https://example.com</link>
+					<item>
+						<title>Post</title>
+						<link>https://example.com/post</link>
+						<description><![CDATA[<p>First paragraph</p><p>Second paragraph</p>]]></description>
+					</item>
+				</channel>
+			</rss>`
+
+		const result = parseRss(xml)
+
+		expect(result?.items[0].description).toBe('First paragraph Second paragraph')
 	})
 })
 

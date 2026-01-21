@@ -28,7 +28,13 @@ export function normalizeUrl(url: string): string {
 	try {
 		const parsed = new URL(withProtocol)
 		const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '')
-		const pathname = parsed.pathname.length > 1 ? parsed.pathname.replace(/\/$/, '') : '/'
+		let pathname = parsed.pathname.length > 1 ? parsed.pathname.replace(/\/$/, '') : '/'
+
+		// SpeakerDeck: prefer .atom over .rss for cleaner feed format
+		if (hostname === 'speakerdeck.com' && pathname.endsWith('.rss')) {
+			pathname = pathname.replace(/\.rss$/, '.atom')
+		}
+
 		return `https://${hostname}${pathname}${parsed.search}`
 	} catch {
 		return withProtocol

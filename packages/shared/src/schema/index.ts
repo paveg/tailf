@@ -10,6 +10,15 @@ export const createFeedSchema = v.object({
 
 export type CreateFeedInput = v.InferInput<typeof createFeedSchema>
 
+// Feed update schema
+export const updateFeedSchema = v.object({
+	title: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(255))),
+	description: v.optional(v.pipe(v.string(), v.maxLength(1000))),
+	type: v.optional(v.picklist(['blog', 'slide'])),
+})
+
+export type UpdateFeedInput = v.InferInput<typeof updateFeedSchema>
+
 // Pagination schema (offset-based)
 export const paginationSchema = v.object({
 	page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),

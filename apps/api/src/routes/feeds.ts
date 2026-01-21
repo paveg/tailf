@@ -1,5 +1,5 @@
 import { vValidator } from '@hono/valibot-validator'
-import { createFeedSchema } from '@tailf/shared'
+import { createFeedSchema, updateFeedSchema } from '@tailf/shared'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
@@ -75,16 +75,16 @@ feedsRoute.get('/mine', requireAuth, async (c) => {
 		},
 	})
 
-	// Add post count
+	// Add post count (bookmarkCount is already in the feeds table)
 	const feedsWithCount = await Promise.all(
 		result.map(async (feed) => {
-			const postCount = await db.query.posts.findMany({
+			const postList = await db.query.posts.findMany({
 				where: eq(posts.feedId, feed.id),
 				columns: { id: true },
 			})
 			return {
 				...feed,
-				postCount: postCount.length,
+				postCount: postList.length,
 			}
 		}),
 	)
@@ -243,6 +243,51 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 	} catch (error) {
 		console.error('[Feed Register] Error:', error)
 		return c.json({ error: 'Failed to register feed', details: String(error) }, 500)
+	}
+})
+
+// Update a feed (only owner can update)
+feedsRoute.patch('/:id', vValidator('json', updateFeedSchema), requireAuth, async (c) => {
+	const feedId = c.req.param('id')
+	const updates = c.req.valid('json')
+	const db = c.get('db')
+	const userId = c.get('userId')
+
+	try {
+		// Check if feed exists and user is owner
+		const feed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
+		})
+
+		if (!feed) {
+			return c.json({ error: 'Feed not found' }, 404)
+		}
+
+		if (feed.authorId !== userId) {
+			return c.json({ error: 'You can only update your own feeds' }, 403)
+		}
+
+		// Build update object with only provided fields
+		const updateData: Partial<typeof feeds.$inferInsert> = {
+			updatedAt: new Date(),
+		}
+		if (updates.title !== undefined) updateData.title = updates.title
+		if (updates.description !== undefined) updateData.description = updates.description
+		if (updates.type !== undefined) updateData.type = updates.type
+
+		await db.update(feeds).set(updateData).where(eq(feeds.id, feedId))
+
+		// Return updated feed
+		const updatedFeed = await db.query.feeds.findFirst({
+			where: eq(feeds.id, feedId),
+			with: { author: true },
+		})
+
+		console.log(`[Feed Update] Feed updated: ${feedId}`)
+		return c.json({ data: updatedFeed })
+	} catch (error) {
+		console.error('[Feed Update] Error:', error)
+		return c.json({ error: 'Failed to update feed', details: String(error) }, 500)
 	}
 })
 

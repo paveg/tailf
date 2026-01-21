@@ -6,6 +6,7 @@
 import type { FeedWithAuthor } from '@tailf/shared'
 import { Bookmark, Building2, ExternalLink, Presentation, Rss, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import {
 	useBookmarkedFeeds,
 	useBookmarkFeed,
@@ -53,6 +54,11 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const feeds = useMemo(() => {
 		let result = baseFeeds
 
+		// Exclude user's own feeds
+		if (user) {
+			result = result.filter((feed) => feed.authorId !== user.id)
+		}
+
 		// Search filter
 		if (searchQuery.trim()) {
 			const query = searchQuery.toLowerCase()
@@ -71,15 +77,21 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 		// 'recent' is default API order (createdAt desc)
 
 		return result
-	}, [baseFeeds, searchQuery, sort])
+	}, [baseFeeds, searchQuery, sort, user])
 
 	const isInitialLoading = useClientFetch && isLoading
 
 	const handleBookmarkToggle = (feedId: string, isBookmarked: boolean) => {
 		if (isBookmarked) {
-			unbookmarkFeed.mutate(feedId)
+			unbookmarkFeed.mutate(feedId, {
+				onSuccess: () => toast.success('ブックマークを解除しました'),
+				onError: () => toast.error('ブックマーク解除に失敗しました'),
+			})
 		} else {
-			bookmarkFeed.mutate(feedId)
+			bookmarkFeed.mutate(feedId, {
+				onSuccess: () => toast.success('ブックマークに追加しました'),
+				onError: () => toast.error('ブックマーク追加に失敗しました'),
+			})
 		}
 	}
 
@@ -156,67 +168,77 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 						return (
 							<Card
 								key={feed.id}
-								className="group h-full transition-colors hover:border-primary/20 hover:bg-muted/50"
+								className="group flex h-full flex-col transition-colors hover:border-primary/20 hover:bg-muted/50"
 							>
-								<CardHeader className="gap-2">
-									<div className="flex items-start justify-between gap-2">
+								<CardHeader className="flex flex-1 flex-col gap-3">
+									{/* Title row */}
+									<div className="flex w-full items-center justify-between gap-2">
 										<a
 											href={feed.siteUrl}
 											target="_blank"
 											rel="noopener noreferrer"
-											className="min-w-0 flex-1"
+											className="flex min-w-0 items-center gap-2"
 										>
+											{feed.isOfficial && <Building2 className="size-4 shrink-0 text-primary" />}
 											<CardTitle className="line-clamp-2 text-base group-hover:text-primary">
 												{feed.title}
 											</CardTitle>
+											<ExternalLink className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
 										</a>
-										<div className="flex shrink-0 items-center gap-1">
-											{user && feed.authorId !== user.id && (
-												<Button
-													variant="ghost"
-													size="icon"
-													className="size-8"
-													onClick={() => handleBookmarkToggle(feed.id, isBookmarked)}
-													disabled={bookmarkFeed.isPending || unbookmarkFeed.isPending}
-												>
-													<Bookmark
-														className={`size-4 ${isBookmarked ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
-													/>
-												</Button>
-											)}
-										</div>
-									</div>
-									{feed.description && (
-										<p className="line-clamp-2 text-sm text-muted-foreground">{feed.description}</p>
-									)}
-									<div className="flex items-center justify-between gap-2 overflow-hidden">
-										<div className="flex min-w-0 flex-1 items-center gap-2">
-											{feed.isOfficial && <Building2 className="size-4 shrink-0 text-primary" />}
-											{feed.author && (
-												<img
-													src={
-														feed.author.avatarUrl || `https://github.com/${feed.author.name}.png`
-													}
-													alt={feed.author.name}
-													width={20}
-													height={20}
-													loading="lazy"
-													decoding="async"
-													className="size-5 shrink-0 rounded-full"
+										{/* Bookmark button - only show when logged in */}
+										{user && feed.authorId !== user.id && (
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-8 shrink-0"
+												onClick={() => handleBookmarkToggle(feed.id, isBookmarked)}
+												disabled={bookmarkFeed.isPending || unbookmarkFeed.isPending}
+											>
+												<Bookmark
+													className={`size-4 ${isBookmarked ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
 												/>
+											</Button>
+										)}
+									</div>
+
+									{/* Description - fixed height area */}
+									<p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
+										{feed.description || '\u00A0'}
+									</p>
+
+									{/* Footer - always at bottom */}
+									<div className="mt-auto flex w-full items-center justify-between gap-2 border-t pt-3">
+										{/* Left side - author info */}
+										<div className="flex min-w-0 flex-1 items-center gap-2">
+											{feed.author && (
+												<>
+													<img
+														src={
+															feed.author.avatarUrl || `https://github.com/${feed.author.name}.png`
+														}
+														alt={feed.author.name}
+														width={16}
+														height={16}
+														loading="lazy"
+														decoding="async"
+														className="size-4 shrink-0 rounded-full"
+													/>
+													<span className="truncate text-xs text-muted-foreground">
+														{feed.author.name}
+													</span>
+												</>
 											)}
-											<span className="truncate text-xs text-muted-foreground">
-												{feed.author?.name ?? feed.title}
-											</span>
 										</div>
+										{/* Right side - type & bookmark count */}
 										<div className="flex shrink-0 items-center gap-2">
-											{/* Feed type badge */}
-											{feed.type === 'slide' && (
-												<span className="flex items-center gap-1 text-xs text-muted-foreground">
+											<span className="flex items-center gap-1 text-xs text-muted-foreground">
+												{feed.type === 'slide' ? (
 													<Presentation className="size-3" />
-												</span>
-											)}
-											{/* Bookmark count */}
+												) : (
+													<Rss className="size-3" />
+												)}
+												{feed.type === 'slide' ? 'スライド' : 'ブログ'}
+											</span>
 											{bookmarkCount > 0 && (
 												<span className="flex items-center gap-1 text-xs text-muted-foreground">
 													<Users className="size-3" />
@@ -224,17 +246,6 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 												</span>
 											)}
 										</div>
-									</div>
-									<div className="flex items-center justify-end">
-										<a
-											href={feed.siteUrl}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-										>
-											{new URL(feed.siteUrl).hostname}
-											<ExternalLink className="size-3" />
-										</a>
 									</div>
 								</CardHeader>
 							</Card>

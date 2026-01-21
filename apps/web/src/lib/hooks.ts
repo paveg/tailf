@@ -66,8 +66,13 @@ function createCursorInfiniteQuery<T>(
 export const queryKeys = {
 	posts: {
 		all: ['posts'] as const,
-		list: (limit?: number, techOnly?: boolean, official?: boolean, sort?: SortOption) =>
-			['posts', 'list', { limit, techOnly, official, sort }] as const,
+		list: (
+			limit?: number,
+			techOnly?: boolean,
+			official?: boolean,
+			sort?: SortOption,
+			excludeAuthorId?: string,
+		) => ['posts', 'list', { limit, techOnly, official, sort, excludeAuthorId }] as const,
 		search: (q: string, limit?: number, techOnly?: boolean, official?: boolean) =>
 			['posts', 'search', { q, limit, techOnly, official }] as const,
 		ranking: (period: 'week' | 'month', limit: number, techOnly?: boolean) =>
@@ -95,11 +100,12 @@ export function useInfinitePosts(
 	techOnly = false,
 	official?: boolean,
 	sort: SortOption = 'recent',
+	excludeAuthorId?: string,
 	initialData?: CursorResponse<PostWithFeed[]>,
 ) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.list(limit, techOnly, official, sort),
-		(cursor) => getPosts({ cursor, limit, techOnly, official, sort }),
+		queryKeys.posts.list(limit, techOnly, official, sort, excludeAuthorId),
+		(cursor) => getPosts({ cursor, limit, techOnly, official, sort, excludeAuthorId }),
 		{ initialData },
 	)
 }
