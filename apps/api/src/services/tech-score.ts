@@ -23,6 +23,8 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'elixir',
 	'haskell',
 	'clojure',
+	'zig',
+	'ocaml',
 	// Frameworks & Libraries
 	'react',
 	'vue',
@@ -39,6 +41,9 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'hono',
 	'spring',
 	'laravel',
+	'flutter',
+	'swiftui',
+	'jetpack compose',
 	// Infrastructure
 	'kubernetes',
 	'k8s',
@@ -50,6 +55,11 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'cloudflare',
 	'vercel',
 	'netlify',
+	'eks',
+	'ecs',
+	'fargate',
+	'lambda',
+	'karpenter',
 	// Databases
 	'postgresql',
 	'mysql',
@@ -60,6 +70,9 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'sqlite',
 	'drizzle',
 	'prisma',
+	'alloydb',
+	'spanner',
+	'opensearch',
 	// DevOps & Tools
 	'github actions',
 	'ci/cd',
@@ -70,6 +83,32 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'webpack',
 	'vite',
 	'esbuild',
+	// AI/ML Tools
+	'openai',
+	'claude',
+	'llm',
+	'gpt',
+	'gemini',
+	'cursor',
+	'copilot',
+	'mcp',
+	'langchain',
+	'llamaindex',
+	// 3D/Game/VR
+	'unity',
+	'unreal',
+	'gltf',
+	'vrm',
+	'webgl',
+	'three.js',
+	// SRE & Platform
+	'sre',
+	'platform engineering',
+	'istio',
+	'envoy',
+	'prometheus',
+	'grafana',
+	'datadog',
 ]
 
 // Medium confidence tech keywords (weight: 0.15 each)
@@ -107,6 +146,22 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'脆弱性',
 	'認証',
 	'認可',
+	// SRE/Platform (Japanese)
+	'インシデント',
+	'オンコール',
+	'可観測性',
+	'監視',
+	'運用',
+	'信頼性',
+	'障害対応',
+	'ポストモーテム',
+	// AI/ML (Japanese)
+	'生成ai',
+	'プロンプト',
+	'ファインチューニング',
+	'ベクトル検索',
+	'埋め込み',
+	'rag',
 	// General tech terms (English)
 	'programming',
 	'engineering',
@@ -134,6 +189,17 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'security',
 	'authentication',
 	'authorization',
+	// SRE/Platform (English)
+	'incident',
+	'on-call',
+	'observability',
+	'monitoring',
+	'reliability',
+	'postmortem',
+	'toil',
+	'slo',
+	'sli',
+	'error budget',
 ]
 
 // Low confidence keywords (weight: 0.05 each)
@@ -165,7 +231,38 @@ const LOW_WEIGHT_KEYWORDS = [
 	'config',
 	'環境',
 	'environment',
+	// Tech context indicators
+	'インターン',
+	'intern',
+	'チーム',
+	'team',
+	'移行',
+	'migration',
+	'リリース',
+	'release',
+	'本番',
+	'production',
+	'ステージング',
+	'staging',
 ]
+
+/**
+ * Decode HTML entities in text
+ * Handles common entities found in RSS feed summaries
+ */
+function decodeHtmlEntities(text: string): string {
+	return text
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&hellip;/g, '...')
+		.replace(/&nbsp;/g, ' ')
+		.replace(/<[^>]*>/g, ' ') // Strip HTML tags
+		.replace(/\s+/g, ' ') // Normalize whitespace
+		.trim()
+}
 
 /**
  * Count keyword matches in text, up to maxMatches limit
@@ -183,7 +280,8 @@ function countMatches(text: string, keywords: readonly string[], maxMatches: num
  * @returns Score between 0.0 and 1.0
  */
 export function calculateTechScore(title: string, summary?: string): number {
-	const text = `${title} ${summary ?? ''}`.toLowerCase()
+	const rawText = `${title} ${summary ?? ''}`
+	const text = decodeHtmlEntities(rawText).toLowerCase()
 
 	const score =
 		countMatches(text, HIGH_WEIGHT_KEYWORDS, 3) * 0.3 +
@@ -229,16 +327,20 @@ const TECH_ANCHOR_PHRASES = [
 
 /**
  * Non-tech phrases for negative comparison
+ * Note: Conference/event reports are NOT included here because
+ * tech conference reports (SRE NEXT, KubeCon, etc.) should be treated as tech articles
  */
 const NON_TECH_ANCHOR_PHRASES = [
 	'転職 キャリア 年収 面接対策 就職活動',
 	'日記 振り返り 感想 ポエム 雑記',
-	'勉強会 イベントレポート 参加してきた 登壇',
 	'書評 読書感想 おすすめ本 レビュー',
 	// Gadget & Review
 	'ガジェット レビュー 買ってよかった デスクツアー 機材紹介',
 	'キーボード マウス モニター イヤホン ヘッドホン',
 	'旅行記 観光 グルメ 食べ歩き',
+	// Non-tech business content
+	'採用 求人 募集 面接 会社紹介 オフィス紹介',
+	'営業 マーケティング 広報 PR プレスリリース',
 ]
 
 // Cache for anchor embeddings (computed once per worker instance)
@@ -296,7 +398,8 @@ export async function calculateTechScoreWithEmbedding(
 		return calculateTechScore(title, summary)
 	}
 
-	const text = `${title} ${summary || ''}`
+	const rawText = `${title} ${summary || ''}`
+	const text = decodeHtmlEntities(rawText)
 
 	try {
 		// Get embeddings
