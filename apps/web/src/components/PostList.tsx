@@ -14,13 +14,14 @@
  * - visibleCount/filteredPosts のロジックを削除
  */
 import type { PostWithFeed } from '@tailf/shared'
-import { Building2, Code2 } from 'lucide-react'
+import { Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { SortOption } from '@/lib/api'
 import { useInfinitePosts, useInfiniteSearchPosts } from '@/lib/hooks'
 import { useDebounce } from '@/lib/useDebounce'
 import { useIntersectionObserver } from '@/lib/useIntersectionObserver'
 import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
+
 import { PostCard } from './PostCard'
 import { QueryProvider } from './QueryProvider'
 import { SearchInput } from './SearchInput'
@@ -31,6 +32,9 @@ import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
 const POSTS_PER_PAGE = 12
 
+type SourceFilter = 'all' | 'personal' | 'official'
+const SOURCE_FILTERS = ['all', 'personal', 'official'] as const
+
 interface PostListContentProps {
 	allPosts: PostWithFeed[]
 }
@@ -40,7 +44,7 @@ const SORT_OPTIONS = ['recent', 'popular'] as const
 function PostListContent({ allPosts }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [techOnly, setTechOnly] = useBooleanQueryParam('tech', true)
-	const [officialOnly, setOfficialOnly] = useBooleanQueryParam('official', false)
+	const [source, setSource] = useStringQueryParam<SourceFilter>('source', 'all', SOURCE_FILTERS)
 	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
@@ -49,7 +53,8 @@ function PostListContent({ allPosts }: PostListContentProps) {
 
 	// SSGデータがない場合（開発環境）はAPIから取得
 	const useClientFetch = allPosts.length === 0
-	const official = officialOnly ? true : undefined
+	// Convert source filter to API parameter: all=undefined, personal=false, official=true
+	const official = source === 'all' ? undefined : source === 'official'
 	const apiQuery = useInfinitePosts(12, techOnly, official, sort)
 
 	// Search uses API (can't pre-build search results)
@@ -136,7 +141,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
 	useEffect(() => {
 		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly, officialOnly, sort])
+	}, [techOnly, source, sort])
 
 	// Determine which posts to show
 	const displayPosts = isSearching
@@ -174,25 +179,36 @@ function PostListContent({ allPosts }: PostListContentProps) {
 					</Tabs>
 
 					{/* Filters */}
-					<ToggleGroup
-						type="multiple"
-						variant="outline"
-						size="sm"
-						value={[...(techOnly ? ['tech'] : []), ...(officialOnly ? ['official'] : [])]}
-						onValueChange={(value) => {
-							setTechOnly(value.includes('tech'))
-							setOfficialOnly(value.includes('official'))
-						}}
-					>
-						<ToggleGroupItem value="tech" className="text-xs">
-							<Code2 className={techOnly ? 'text-primary' : ''} />
-							技術記事
-						</ToggleGroupItem>
-						<ToggleGroupItem value="official" className="text-xs">
-							<Building2 className={officialOnly ? 'text-primary' : ''} />
-							企業ブログ
-						</ToggleGroupItem>
-					</ToggleGroup>
+					<div className="flex items-center gap-2">
+						{/* Source filter */}
+						<Tabs value={source} onValueChange={(v) => setSource(v as SourceFilter)}>
+							<TabsList className="h-8">
+								<TabsTrigger value="all" className="px-2 text-xs">
+									すべて
+								</TabsTrigger>
+								<TabsTrigger value="personal" className="px-2 text-xs">
+									個人
+								</TabsTrigger>
+								<TabsTrigger value="official" className="px-2 text-xs">
+									企業
+								</TabsTrigger>
+							</TabsList>
+						</Tabs>
+
+						{/* Tech filter */}
+						<ToggleGroup
+							type="single"
+							variant="outline"
+							size="sm"
+							value={techOnly ? 'tech' : ''}
+							onValueChange={(value) => setTechOnly(value === 'tech')}
+						>
+							<ToggleGroupItem value="tech" className="text-xs">
+								<Code2 className={techOnly ? 'text-primary' : ''} />
+								技術記事
+							</ToggleGroupItem>
+						</ToggleGroup>
+					</div>
 				</div>
 			</div>
 

@@ -7,6 +7,7 @@ import { authRoute } from './routes/auth'
 import { userFeedRoute } from './routes/feed'
 import { feedsRoute } from './routes/feeds'
 import { postsRoute } from './routes/posts'
+import { updateRecentBookmarkCounts } from './services/hatena'
 import { fetchRssFeeds } from './services/rss'
 
 export type Env = {
@@ -59,11 +60,12 @@ app.route('/api/posts', postsRoute)
 app.route('/api/feed', userFeedRoute)
 app.route('/api/admin', adminRoute)
 
-// Cron handler for RSS fetching
+// Cron handler for RSS fetching and bookmark updates
 export default {
 	fetch: app.fetch,
 	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-		// Pass AI binding for embedding-based tech score calculation
-		ctx.waitUntil(fetchRssFeeds(createDb(env.DB), env.AI))
+		const db = createDb(env.DB)
+		// Fetch new RSS posts and update bookmark counts in parallel
+		ctx.waitUntil(Promise.all([fetchRssFeeds(db, env.AI), updateRecentBookmarkCounts(db)]))
 	},
 }
