@@ -142,6 +142,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.59.2(@cloudflare/workers-types@4.20260118.0)
 
   packages/shared:
     dependencies:
