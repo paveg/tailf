@@ -11,6 +11,7 @@ interface Props {
 
 const { title, description = '日本の技術ブログを、もっと見つけやすく' } = Astro.props
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
+const isProd = import.meta.env.PROD
 ---
 
 <!doctype html>
@@ -118,7 +119,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site)
 			</footer>
 		</div>
 		<Toaster client:load position="top-right" />
-		<!-- Cloudflare Web Analytics -->
-		<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "13c59bd451114e2f8c867ea9293d6c3f"}'></script>
+		<!-- Cloudflare Web Analytics (production only) -->
+		{isProd && <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "13c59bd451114e2f8c867ea9293d6c3f"}'></script>}
 	</body>
 </html>

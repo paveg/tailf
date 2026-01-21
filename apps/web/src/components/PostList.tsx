@@ -164,51 +164,71 @@ function PostListContent({ allPosts }: PostListContentProps) {
 				{/* Search Input */}
 				<SearchInput value={searchQuery} onChange={setSearchQuery} isLoading={showSearchLoading} />
 
-				{/* Sort and Filters - single row */}
-				<div className="flex items-center justify-between gap-3">
-					{/* Sort Tabs */}
-					<Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-						<TabsList className="h-8">
-							<TabsTrigger value="recent" className="px-3 text-xs">
-								新着
-							</TabsTrigger>
-							<TabsTrigger value="popular" className="px-3 text-xs">
-								人気
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
-
-					{/* Filters */}
-					<div className="flex items-center gap-2">
-						{/* Source filter */}
-						<Tabs value={source} onValueChange={(v) => setSource(v as SourceFilter)}>
-							<TabsList className="h-8">
-								<TabsTrigger value="all" className="px-2 text-xs">
-									すべて
+				{/* Sort and Filters - responsive layout */}
+				{/* Mobile: 2 rows / Desktop: single row */}
+				<div className="space-y-2 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
+					{/* Row 1 (mobile): Sort + Tech toggle */}
+					<div className="flex items-center gap-2 sm:contents">
+						<Tabs
+							value={sort}
+							onValueChange={(v) => setSort(v as SortOption)}
+							className="flex-1 sm:flex-none"
+						>
+							<TabsList className="h-9 w-full sm:h-8 sm:w-auto">
+								<TabsTrigger
+									value="recent"
+									className="flex-1 text-sm sm:flex-none sm:px-3 sm:text-xs"
+								>
+									新着
 								</TabsTrigger>
-								<TabsTrigger value="personal" className="px-2 text-xs">
-									個人
-								</TabsTrigger>
-								<TabsTrigger value="official" className="px-2 text-xs">
-									企業
+								<TabsTrigger
+									value="popular"
+									className="flex-1 text-sm sm:flex-none sm:px-3 sm:text-xs"
+								>
+									人気
 								</TabsTrigger>
 							</TabsList>
 						</Tabs>
 
-						{/* Tech filter */}
 						<ToggleGroup
 							type="single"
 							variant="outline"
 							size="sm"
 							value={techOnly ? 'tech' : ''}
 							onValueChange={(value) => setTechOnly(value === 'tech')}
+							className="shrink-0 sm:order-last sm:ml-auto"
 						>
-							<ToggleGroupItem value="tech" className="text-xs">
+							<ToggleGroupItem value="tech" className="h-9 px-3 text-sm sm:h-8 sm:text-xs">
 								<Code2 className={techOnly ? 'text-primary' : ''} />
 								技術記事
 							</ToggleGroupItem>
 						</ToggleGroup>
 					</div>
+
+					{/* Row 2 (mobile): Source filter */}
+					<Tabs
+						value={source}
+						onValueChange={(v) => setSource(v as SourceFilter)}
+						className="w-full sm:w-auto"
+					>
+						<TabsList className="h-9 w-full sm:h-8 sm:w-auto">
+							<TabsTrigger value="all" className="flex-1 text-sm sm:flex-none sm:px-3 sm:text-xs">
+								すべて
+							</TabsTrigger>
+							<TabsTrigger
+								value="personal"
+								className="flex-1 text-sm sm:flex-none sm:px-3 sm:text-xs"
+							>
+								個人
+							</TabsTrigger>
+							<TabsTrigger
+								value="official"
+								className="flex-1 text-sm sm:flex-none sm:px-3 sm:text-xs"
+							>
+								企業
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
 				</div>
 			</div>
 

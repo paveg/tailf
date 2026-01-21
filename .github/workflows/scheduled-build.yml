@@ -2,8 +2,8 @@ name: Scheduled Build
 
 on:
   schedule:
-    # Run every 6 hours (0:00, 6:00, 12:00, 18:00 UTC)
-    - cron: '0 */6 * * *'
+    # Run every hour for fresh content (free for public repos)
+    - cron: '0 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

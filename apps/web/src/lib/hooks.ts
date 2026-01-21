@@ -31,23 +31,27 @@ import {
 interface CursorInfiniteQueryOptions<T> {
 	enabled?: boolean
 	initialData?: CursorResponse<T[]>
+	/** Set to 0 for SWR pattern (always revalidate) */
+	staleTime?: number
 }
 
 /**
  * Factory for creating cursor-based infinite query hooks.
+ * Supports SWR pattern: pass initialData (SSG) + staleTime: 0 to always fetch fresh data from API.
  */
 function createCursorInfiniteQuery<T>(
 	queryKey: readonly unknown[],
 	queryFn: (cursor?: string) => Promise<CursorResponse<T[]>>,
 	options?: CursorInfiniteQueryOptions<T>,
 ) {
-	const { initialData, ...restOptions } = options ?? {}
+	const { initialData, staleTime, ...restOptions } = options ?? {}
 
 	return useInfiniteQuery({
 		queryKey,
 		queryFn: ({ pageParam }) => queryFn(pageParam),
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (lastPage) => (lastPage.meta.hasMore ? lastPage.meta.nextCursor : undefined),
+		staleTime,
 		...(initialData && {
 			initialData: {
 				pages: [initialData],
