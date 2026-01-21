@@ -5,6 +5,7 @@
  */
 import type { FeedWithAuthor } from '@tailf/shared'
 import { Bookmark, Building2, ExternalLink, Presentation, Rss, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import {
 	useBookmarkedFeeds,
 	useBookmarkFeed,
@@ -12,23 +13,30 @@ import {
 	useFeeds,
 	useUnbookmarkFeed,
 } from '@/lib/hooks'
-import { useBooleanQueryParam } from '@/lib/useQueryParams'
+import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
 import { QueryProvider } from './QueryProvider'
+import { SearchInput } from './SearchInput'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle } from './ui/card'
 import { Empty } from './ui/empty'
 import { Skeleton } from './ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { Toggle } from './ui/toggle'
+
+type SortOption = 'recent' | 'popular'
+const SORT_OPTIONS = ['recent', 'popular'] as const
 
 interface FeedListContentProps {
 	initialFeeds: FeedWithAuthor[]
 }
 
 function FeedListContent({ initialFeeds }: FeedListContentProps) {
+	const [searchQuery, setSearchQuery] = useState('')
 	const [officialOnly, setOfficialOnly] = useBooleanQueryParam('official', false)
+	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
 	const useClientFetch = initialFeeds.length === 0
 	const official = officialOnly ? true : undefined
-	const { data, isLoading } = useFeeds({ perPage: 50, official })
+	const { data, isLoading } = useFeeds({ perPage: 100, official })
 	const { data: user } = useCurrentUser()
 	const { data: bookmarkedData } = useBookmarkedFeeds()
 	const bookmarkFeed = useBookmarkFeed()
@@ -37,9 +45,33 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const bookmarkedFeedIds = new Set(bookmarkedData?.data?.map((f) => f.id) ?? [])
 
 	const apiFeeds = data?.data ?? []
-	const feeds: FeedWithAuthor[] = useClientFetch
+	const baseFeeds: FeedWithAuthor[] = useClientFetch
 		? apiFeeds
 		: initialFeeds.filter((f) => !officialOnly || f.isOfficial)
+
+	// Filter and sort feeds client-side
+	const feeds = useMemo(() => {
+		let result = baseFeeds
+
+		// Search filter
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase()
+			result = result.filter(
+				(feed) =>
+					feed.title.toLowerCase().includes(query) ||
+					feed.description?.toLowerCase().includes(query) ||
+					feed.siteUrl.toLowerCase().includes(query),
+			)
+		}
+
+		// Sort
+		if (sort === 'popular') {
+			result = [...result].sort((a, b) => (b.bookmarkCount ?? 0) - (a.bookmarkCount ?? 0))
+		}
+		// 'recent' is default API order (createdAt desc)
+
+		return result
+	}, [baseFeeds, searchQuery, sort])
 
 	const isInitialLoading = useClientFetch && isLoading
 
@@ -51,26 +83,38 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 		}
 	}
 
-	// フィルタートグル - 常に表示
-	const filterToggle = (
-		<div className="flex items-center justify-end">
-			<Toggle
-				variant="outline"
-				pressed={officialOnly}
-				onPressedChange={setOfficialOnly}
-				size="sm"
-				className="text-xs"
-			>
-				<Building2 className={officialOnly ? 'text-primary' : ''} />
-				企業ブログ
-			</Toggle>
-		</div>
-	)
-
 	return (
 		<div className="space-y-6">
-			{/* Filter Toggle */}
-			{filterToggle}
+			{/* Search and Controls */}
+			<div className="space-y-3">
+				<SearchInput
+					value={searchQuery}
+					onChange={setSearchQuery}
+					placeholder="フィードを検索..."
+				/>
+				<div className="flex items-center justify-between gap-2">
+					<Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+						<TabsList className="h-8">
+							<TabsTrigger value="recent" className="px-3 text-xs">
+								新着
+							</TabsTrigger>
+							<TabsTrigger value="popular" className="px-3 text-xs">
+								人気
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+					<Toggle
+						variant="outline"
+						pressed={officialOnly}
+						onPressedChange={setOfficialOnly}
+						size="sm"
+						className="text-xs"
+					>
+						<Building2 className={officialOnly ? 'text-primary' : ''} />
+						企業ブログ
+					</Toggle>
+				</div>
+			</div>
 
 			{/* Loading State */}
 			{isInitialLoading && (
@@ -93,7 +137,13 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 			{!isInitialLoading && feeds.length === 0 && (
 				<Empty
 					icon={Rss}
-					title={officialOnly ? '企業ブログがありません' : 'まだフィードが登録されていません'}
+					title={
+						searchQuery
+							? '検索結果がありません'
+							: officialOnly
+								? '企業ブログがありません'
+								: 'まだフィードが登録されていません'
+					}
 				/>
 			)}
 

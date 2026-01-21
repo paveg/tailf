@@ -7,6 +7,7 @@ import { authRoute } from './routes/auth'
 import { userFeedRoute } from './routes/feed'
 import { feedsRoute } from './routes/feeds'
 import { postsRoute } from './routes/posts'
+import { reconcileBookmarkCounts } from './services/feed-sync'
 import { updateRecentBookmarkCounts } from './services/hatena'
 import { fetchRssFeeds } from './services/rss'
 
@@ -65,7 +66,13 @@ export default {
 	fetch: app.fetch,
 	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
 		const db = createDb(env.DB)
-		// Fetch new RSS posts and update bookmark counts in parallel
-		ctx.waitUntil(Promise.all([fetchRssFeeds(db, env.AI), updateRecentBookmarkCounts(db)]))
+		// Fetch new RSS posts, update bookmark counts, and reconcile feed bookmark counts in parallel
+		ctx.waitUntil(
+			Promise.all([
+				fetchRssFeeds(db, env.AI),
+				updateRecentBookmarkCounts(db),
+				reconcileBookmarkCounts(db),
+			]),
+		)
 	},
 }

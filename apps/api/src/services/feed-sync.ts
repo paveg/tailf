@@ -2,9 +2,10 @@
  * Feed sync service
  * Syncs official feeds from static list to database
  */
+import { count, eq } from 'drizzle-orm'
 import { OFFICIAL_FEEDS } from '../data/official-feeds'
 import type { Database } from '../db'
-import { feeds } from '../db/schema'
+import { feedBookmarks, feeds } from '../db/schema'
 import { generateId } from '../utils/id'
 
 export interface SyncResult {
@@ -88,4 +89,43 @@ function extractSiteUrl(feedUrl: string): string {
 	} catch {
 		return feedUrl
 	}
+}
+
+/**
+ * Reconcile bookmark counts
+ * Recalculates bookmark_count from feed_bookmarks table to fix any drift
+ */
+export async function reconcileBookmarkCounts(db: Database): Promise<{ updated: number }> {
+	console.log('[Reconcile] Starting bookmark count reconciliation')
+
+	// Get actual counts from feed_bookmarks
+	const actualCounts = await db
+		.select({
+			feedId: feedBookmarks.feedId,
+			count: count(),
+		})
+		.from(feedBookmarks)
+		.groupBy(feedBookmarks.feedId)
+
+	// Create a map for quick lookup
+	const countMap = new Map(actualCounts.map((c) => [c.feedId, c.count]))
+
+	// Get all feeds with their current bookmark counts
+	const allFeeds = await db.query.feeds.findMany({
+		columns: { id: true, bookmarkCount: true },
+	})
+
+	let updated = 0
+
+	// Update feeds where count doesn't match
+	for (const feed of allFeeds) {
+		const actualCount = countMap.get(feed.id) ?? 0
+		if (feed.bookmarkCount !== actualCount) {
+			await db.update(feeds).set({ bookmarkCount: actualCount }).where(eq(feeds.id, feed.id))
+			updated++
+		}
+	}
+
+	console.log(`[Reconcile] Updated ${updated} feed bookmark counts`)
+	return { updated }
 }

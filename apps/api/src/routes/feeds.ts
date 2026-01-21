@@ -1,6 +1,6 @@
 import { vValidator } from '@hono/valibot-validator'
 import { createFeedSchema } from '@tailf/shared'
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -52,31 +52,8 @@ feedsRoute.get(
 			},
 		})
 
-		// Get bookmark counts for all feeds
-		const feedIds = result.map((f) => f.id)
-		const bookmarkCounts =
-			feedIds.length > 0
-				? await db
-						.select({
-							feedId: feedBookmarks.feedId,
-							count: count(),
-						})
-						.from(feedBookmarks)
-						.where(inArray(feedBookmarks.feedId, feedIds))
-						.groupBy(feedBookmarks.feedId)
-				: []
-
-		// Create a map for quick lookup
-		const countMap = new Map(bookmarkCounts.map((bc) => [bc.feedId, bc.count]))
-
-		// Add bookmark count to each feed
-		const feedsWithBookmarkCount = result.map((feed) => ({
-			...feed,
-			bookmarkCount: countMap.get(feed.id) ?? 0,
-		}))
-
 		return c.json({
-			data: feedsWithBookmarkCount,
+			data: result,
 			meta: { page, perPage },
 		})
 	},
@@ -276,7 +253,23 @@ feedsRoute.post('/:id/bookmark', requireAuth, async (c) => {
 	const userId = c.get('userId')
 
 	try {
-		await db.insert(feedBookmarks).values({ userId, feedId }).onConflictDoNothing()
+		// Check if already bookmarked
+		const existing = await db.query.feedBookmarks.findFirst({
+			where: and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)),
+		})
+
+		if (existing) {
+			return c.json({ success: true })
+		}
+
+		// Insert bookmark and increment count
+		await db.batch([
+			db.insert(feedBookmarks).values({ userId, feedId }),
+			db
+				.update(feeds)
+				.set({ bookmarkCount: sql`${feeds.bookmarkCount} + 1` })
+				.where(eq(feeds.id, feedId)),
+		])
 		return c.json({ success: true })
 	} catch {
 		return c.json({ error: 'Failed to bookmark' }, 500)
@@ -289,9 +282,25 @@ feedsRoute.delete('/:id/bookmark', requireAuth, async (c) => {
 	const db = c.get('db')
 	const userId = c.get('userId')
 
-	await db
-		.delete(feedBookmarks)
-		.where(and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)))
+	// Check if bookmark exists
+	const existing = await db.query.feedBookmarks.findFirst({
+		where: and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId)),
+	})
+
+	if (!existing) {
+		return c.json({ success: true })
+	}
+
+	// Delete bookmark and decrement count
+	await db.batch([
+		db
+			.delete(feedBookmarks)
+			.where(and(eq(feedBookmarks.userId, userId), eq(feedBookmarks.feedId, feedId))),
+		db
+			.update(feeds)
+			.set({ bookmarkCount: sql`MAX(${feeds.bookmarkCount} - 1, 0)` })
+			.where(eq(feeds.id, feedId)),
+	])
 	return c.json({ success: true })
 })
 

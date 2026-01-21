@@ -21,6 +21,7 @@ export interface Feed {
 	siteUrl: string
 	type: FeedType
 	isOfficial: boolean
+	bookmarkCount: number
 	authorId: string | null
 	createdAt: Date
 	updatedAt: Date
@@ -29,7 +30,6 @@ export interface Feed {
 // Feed with author (for API responses with relations)
 export interface FeedWithAuthor extends Feed {
 	author: User | null
-	bookmarkCount?: number
 }
 
 // Post
