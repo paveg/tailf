@@ -180,23 +180,30 @@ export function useLogout() {
 
 // User Feed - Infinite scroll with cursor-based pagination
 export function useInfiniteUserFeed(limit = 12, techOnly = false) {
-	return createCursorInfiniteQuery(queryKeys.userFeed.posts(limit, techOnly), (cursor) =>
-		getUserFeed({ cursor, limit, techOnly }),
+	const { data: user } = useCurrentUser()
+	return createCursorInfiniteQuery(
+		queryKeys.userFeed.posts(limit, techOnly),
+		(cursor) => getUserFeed({ cursor, limit, techOnly }),
+		{ enabled: !!user },
 	)
 }
 
 // Legacy user feed hook
 export function useUserFeed(params?: GetPostsParams) {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: ['userFeed', 'legacy', params],
 		queryFn: () => getUserFeed(params),
+		enabled: !!user,
 	})
 }
 
 export function useBookmarkedFeeds() {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: queryKeys.userFeed.bookmarked,
 		queryFn: getBookmarkedFeeds,
+		enabled: !!user,
 	})
 }
 
@@ -240,9 +247,11 @@ export function useUnbookmarkFeed() {
 
 // My Feeds
 export function useMyFeeds() {
+	const { data: user } = useCurrentUser()
 	return useQuery({
 		queryKey: queryKeys.feeds.mine,
 		queryFn: getMyFeeds,
+		enabled: !!user,
 	})
 }
 
