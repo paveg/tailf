@@ -55,9 +55,7 @@ export function PostCard({ post }: PostCardProps) {
 									{formatDate(post.publishedAt)}
 								</time>
 							</div>
-							<div
-								className={`flex items-center gap-1 ${isPopular ? 'text-orange-500 dark:text-orange-400' : ''}`}
-							>
+							<div className="flex items-center gap-1 text-hatena">
 								<HatenaBookmarkIcon className="size-3" />
 								<span className={isPopular ? 'font-medium' : ''}>{bookmarkCount}</span>
 							</div>

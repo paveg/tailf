@@ -27,6 +27,7 @@
 	--ring: oklch(0.52 0.18 255); /* #0969da */
 
 	/* Semantic Colors - GitHub Primer */
+	--hatena: oklch(0.65 0.15 220); /* #00A4DE - Hatena Bookmark brand color */
 	--success: oklch(0.50 0.18 145); /* #1a7f37 */
 	--success-foreground: oklch(1 0 0); /* #ffffff */
 	--warning: oklch(0.55 0.15 85); /* #9a6700 */
@@ -81,6 +82,7 @@
 	--ring: oklch(0.62 0.19 255); /* #2f81f7 */
 
 	/* Semantic Colors - GitHub Primer Dark */
+	--hatena: oklch(0.70 0.14 220); /* #00A4DE - Hatena Bookmark brand color (slightly brighter for dark mode) */
 	--success: oklch(0.65 0.20 145); /* #3fb950 */
 	--success-foreground: oklch(0.14 0.015 260); /* #0d1117 */
 	--warning: oklch(0.70 0.16 85); /* #d29922 */
@@ -136,6 +138,7 @@
 	--color-ring: var(--ring);
 
 	/* Colors - Semantic */
+	--color-hatena: var(--hatena);
 	--color-success: var(--success);
 	--color-success-foreground: var(--success-foreground);
 	--color-warning: var(--warning);
