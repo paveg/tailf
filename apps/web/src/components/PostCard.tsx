@@ -27,7 +27,7 @@ export function PostCard({ post }: PostCardProps) {
 	const isPopular = bookmarkCount >= 10
 
 	return (
-		<Card className="group overflow-hidden pt-0 transition-colors hover:bg-muted/50">
+		<Card className="group overflow-hidden pt-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted/50">
 			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
 				<div className="mb-2 aspect-[2/1] w-full overflow-hidden border-b bg-muted">
 					{post.thumbnailUrl ? (
@@ -36,11 +36,11 @@ export function PostCard({ post }: PostCardProps) {
 							alt=""
 							loading="lazy"
 							decoding="async"
-							className="size-full object-cover"
+							className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
 						/>
 					) : (
-						<div className="flex size-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-							<span className="font-mono text-4xl font-bold text-muted-foreground/20">
+						<div className="flex size-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10 transition-all duration-300 group-hover:from-muted-foreground/5 group-hover:to-muted-foreground/15">
+							<span className="font-mono text-4xl font-bold text-muted-foreground/20 transition-colors duration-300 group-hover:text-muted-foreground/30">
 								{post.title.charAt(0).toUpperCase()}
 							</span>
 						</div>
@@ -61,7 +61,7 @@ export function PostCard({ post }: PostCardProps) {
 							</div>
 						</div>
 					</div>
-					<CardTitle className="line-clamp-2 text-base leading-snug group-hover:text-primary break-keep">
+					<CardTitle className="line-clamp-2 text-base leading-snug transition-colors duration-300 group-hover:text-primary break-keep">
 						{post.title}
 					</CardTitle>
 					<div className="flex items-center justify-between gap-2 overflow-hidden">
