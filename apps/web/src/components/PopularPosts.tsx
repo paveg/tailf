@@ -46,7 +46,7 @@ function RankingCard({ post, rank }: RankingCardProps) {
 	return (
 		<Card
 			className={`
-				group relative overflow-hidden transition-all duration-300
+				group relative overflow-hidden pt-0 transition-all duration-300
 				hover:bg-muted/50 hover:-translate-y-0.5
 				${isTopThree ? `${rankStyle?.ring} ${rankStyle?.glow}` : ''}
 			`}
@@ -55,25 +55,37 @@ function RankingCard({ post, rank }: RankingCardProps) {
 			}}
 		>
 			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
-				<CardHeader className="gap-3 pb-4">
-					{/* Top row: Rank + Bookmark count + Date */}
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							{/* Rank Badge */}
-							<div
-								className={`
-									flex size-7 items-center justify-center rounded-full text-xs font-bold shadow-md
-									${isTopThree ? rankStyle?.badge : 'bg-muted text-muted-foreground'}
-								`}
-							>
-								{rank}
-							</div>
+				{/* Thumbnail with Rank Badge overlay */}
+				<div className="relative mb-2 aspect-[2/1] w-full overflow-hidden border-b bg-muted">
+					{post.thumbnailUrl ? (
+						<img
+							src={post.thumbnailUrl}
+							alt=""
+							loading="lazy"
+							decoding="async"
+							className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+						/>
+					) : (
+						<RankingCardFallback title={post.title} />
+					)}
+					{/* Rank Badge - positioned on thumbnail */}
+					<div
+						className={`
+							absolute left-2 top-2 flex size-8 items-center justify-center rounded-full text-sm font-bold shadow-lg
+							${isTopThree ? rankStyle?.badge : 'bg-background/90 text-muted-foreground backdrop-blur-sm'}
+						`}
+					>
+						{rank}
+					</div>
+				</div>
 
-							{/* Hatena Bookmark Count */}
-							<div className="flex items-center gap-1 rounded-full bg-hatena/10 px-2 py-0.5 text-xs font-medium text-hatena">
-								<HatenaBookmarkIcon className="size-3" />
-								<span>{post.hatenaBookmarkCount ?? 0}</span>
-							</div>
+				<CardHeader className="gap-3 pb-4 pt-0">
+					{/* Top row: Bookmark count + Date */}
+					<div className="flex items-center justify-between">
+						{/* Hatena Bookmark Count */}
+						<div className="flex items-center gap-1 rounded-full bg-hatena/10 px-2 py-0.5 text-xs font-medium text-hatena">
+							<HatenaBookmarkIcon className="size-3" />
+							<span>{post.hatenaBookmarkCount ?? 0}</span>
 						</div>
 
 						<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -85,7 +97,7 @@ function RankingCard({ post, rank }: RankingCardProps) {
 					</div>
 
 					{/* Title */}
-					<h3 className="line-clamp-2 text-base font-semibold leading-snug transition-colors group-hover:text-primary">
+					<h3 className="line-clamp-2 text-base font-semibold leading-snug transition-colors duration-300 group-hover:text-primary">
 						{post.title}
 					</h3>
 
@@ -118,17 +130,29 @@ function RankingCard({ post, rank }: RankingCardProps) {
 	)
 }
 
+function RankingCardFallback({ title }: { title: string }) {
+	return (
+		<div className="flex size-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10 transition-all duration-300 group-hover:from-muted-foreground/5 group-hover:to-muted-foreground/15">
+			<span className="font-mono text-4xl font-bold text-muted-foreground/20 transition-colors duration-300 group-hover:text-muted-foreground/30">
+				{title.charAt(0).toUpperCase()}
+			</span>
+		</div>
+	)
+}
+
 function PopularPostsSkeleton() {
 	return (
 		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{Array.from({ length: POPULAR_POSTS_LIMIT }).map((_, i) => (
-				<Card key={i} className="overflow-hidden">
-					<CardHeader className="gap-3 pb-4">
+				<Card key={i} className="overflow-hidden pt-0">
+					{/* Thumbnail skeleton */}
+					<div className="relative mb-2 aspect-[2/1] w-full border-b">
+						<Skeleton className="size-full" />
+						<Skeleton className="absolute left-2 top-2 size-8 rounded-full" />
+					</div>
+					<CardHeader className="gap-3 pb-4 pt-0">
 						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-2">
-								<Skeleton className="size-7 rounded-full" />
-								<Skeleton className="h-5 w-12 rounded-full" />
-							</div>
+							<Skeleton className="h-5 w-12 rounded-full" />
 							<Skeleton className="h-4 w-16" />
 						</div>
 						<Skeleton className="h-5 w-full" />
