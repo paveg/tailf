@@ -1,6 +1,6 @@
 import { vValidator } from '@hono/valibot-validator'
 import { cursorPaginationQuerySchema } from '@tailf/shared'
-import { and, desc, eq, gte, inArray, like, lt, or, type SQL } from 'drizzle-orm'
+import { and, desc, eq, gt, gte, inArray, like, lt, or, type SQL } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
@@ -183,9 +183,13 @@ postsRoute.get(
 
 		const dateCondition = gte(posts.publishedAt, threshold)
 		const techCondition = techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined
+		// Only include posts with at least 1 bookmark for ranking
+		const bookmarkCondition = gt(posts.hatenaBookmarkCount, 0)
+
+		const conditions = [dateCondition, bookmarkCondition, techCondition].filter(Boolean)
 
 		const result = await db.query.posts.findMany({
-			where: techCondition ? and(dateCondition, techCondition) : dateCondition,
+			where: and(...conditions),
 			limit,
 			// Sort by Hatena bookmark count (descending), then by published date
 			orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
