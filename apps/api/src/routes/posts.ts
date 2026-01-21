@@ -6,6 +6,8 @@ import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { parsePopularCursor } from '../utils/cursor'
+import { getThreshold } from '../utils/date'
 import { buildCursorResponse } from '../utils/pagination'
 
 // Tech filter threshold
@@ -56,17 +58,11 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 	let cursorCondition: SQL | undefined
 	if (cursor) {
 		if (sort === 'popular') {
-			// For popular sort, cursor is "bookmarkCount:publishedAt" format
-			// Use indexOf to handle ISO date strings which contain colons
-			const colonIndex = cursor.indexOf(':')
-			const countStr = cursor.slice(0, colonIndex)
-			const dateStr = cursor.slice(colonIndex + 1)
-			const cursorCount = Number.parseInt(countStr, 10)
-			const cursorDate = new Date(dateStr)
+			const { count, date } = parsePopularCursor(cursor)
 			// Posts with lower bookmark count, or same count but older
 			cursorCondition = or(
-				lt(posts.hatenaBookmarkCount, cursorCount),
-				and(eq(posts.hatenaBookmarkCount, cursorCount), lt(posts.publishedAt, cursorDate)),
+				lt(posts.hatenaBookmarkCount, count),
+				and(eq(posts.hatenaBookmarkCount, count), lt(posts.publishedAt, date)),
 			)
 		} else {
 			cursorCondition = lt(posts.publishedAt, new Date(cursor))
@@ -176,17 +172,12 @@ postsRoute.get(
 		const { period: requestedPeriod, limit, techOnly } = c.req.valid('query')
 		const db = c.get('db')
 
-		const now = new Date()
 		const techCondition = techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined
 		const bookmarkCondition = gt(posts.hatenaBookmarkCount, 0)
 
 		// Helper to fetch ranking for a given period
 		const fetchRanking = async (period: 'week' | 'month') => {
-			const threshold = new Date(
-				period === 'week'
-					? now.getTime() - 7 * 24 * 60 * 60 * 1000
-					: now.getTime() - 30 * 24 * 60 * 60 * 1000,
-			)
+			const threshold = getThreshold(period)
 			const dateCondition = gte(posts.publishedAt, threshold)
 			const conditions = [dateCondition, bookmarkCondition, techCondition].filter(Boolean)
 

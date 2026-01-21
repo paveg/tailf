@@ -168,45 +168,28 @@ const LOW_WEIGHT_KEYWORDS = [
 ]
 
 /**
+ * Count keyword matches in text, up to maxMatches limit
+ */
+function countMatches(text: string, keywords: readonly string[], maxMatches: number): number {
+	let matches = 0
+	for (const keyword of keywords) {
+		if (text.includes(keyword.toLowerCase()) && ++matches >= maxMatches) break
+	}
+	return matches
+}
+
+/**
  * Calculate tech score for a post based on title and summary
  * @returns Score between 0.0 and 1.0
  */
 export function calculateTechScore(title: string, summary?: string): number {
-	const text = `${title} ${summary || ''}`.toLowerCase()
+	const text = `${title} ${summary ?? ''}`.toLowerCase()
 
-	let score = 0
+	const score =
+		countMatches(text, HIGH_WEIGHT_KEYWORDS, 3) * 0.3 +
+		countMatches(text, MEDIUM_WEIGHT_KEYWORDS, 4) * 0.15 +
+		countMatches(text, LOW_WEIGHT_KEYWORDS, 5) * 0.05
 
-	// High weight keywords (max contribution: 0.9)
-	let highMatches = 0
-	for (const keyword of HIGH_WEIGHT_KEYWORDS) {
-		if (text.includes(keyword.toLowerCase())) {
-			highMatches++
-			if (highMatches >= 3) break
-		}
-	}
-	score += highMatches * 0.3
-
-	// Medium weight keywords (max contribution: 0.6)
-	let mediumMatches = 0
-	for (const keyword of MEDIUM_WEIGHT_KEYWORDS) {
-		if (text.includes(keyword.toLowerCase())) {
-			mediumMatches++
-			if (mediumMatches >= 4) break
-		}
-	}
-	score += mediumMatches * 0.15
-
-	// Low weight keywords (max contribution: 0.25)
-	let lowMatches = 0
-	for (const keyword of LOW_WEIGHT_KEYWORDS) {
-		if (text.includes(keyword.toLowerCase())) {
-			lowMatches++
-			if (lowMatches >= 5) break
-		}
-	}
-	score += lowMatches * 0.05
-
-	// Cap at 1.0
 	return Math.min(score, 1.0)
 }
 
@@ -324,22 +307,14 @@ export async function calculateTechScoreWithEmbedding(
 
 		const inputEmbedding = inputResult.data[0]
 
-		// Calculate max similarity to tech anchors
-		let maxTechSim = 0
-		for (const anchor of anchors.tech) {
-			const sim = cosineSimilarity(inputEmbedding, anchor)
-			maxTechSim = Math.max(maxTechSim, sim)
-		}
+		// Calculate max similarity to anchor phrases
+		const maxSimilarity = (anchorList: number[][]) =>
+			Math.max(...anchorList.map((anchor) => cosineSimilarity(inputEmbedding, anchor)))
 
-		// Calculate max similarity to non-tech anchors
-		let maxNonTechSim = 0
-		for (const anchor of anchors.nonTech) {
-			const sim = cosineSimilarity(inputEmbedding, anchor)
-			maxNonTechSim = Math.max(maxNonTechSim, sim)
-		}
+		const maxTechSim = maxSimilarity(anchors.tech)
+		const maxNonTechSim = maxSimilarity(anchors.nonTech)
 
 		// Score = tech similarity - non-tech penalty, normalized to 0-1
-		// If more similar to tech anchors, score is higher
 		const rawScore = maxTechSim - maxNonTechSim * 0.5
 		const normalizedScore = Math.max(0, Math.min(1, (rawScore + 0.3) / 0.8))
 

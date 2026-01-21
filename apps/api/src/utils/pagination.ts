@@ -1,3 +1,5 @@
+import { buildPopularCursor } from './cursor'
+
 /**
  * Build cursor-based pagination response from query result.
  * Expects results fetched with limit + 1 to determine hasMore.
@@ -23,9 +25,7 @@ export function buildCursorResponse<
 	if (hasMore && data.length > 0) {
 		const lastItem = data[data.length - 1]
 		if (sort === 'popular') {
-			// For popular sort: "bookmarkCount:publishedAt" format
-			const count = lastItem.hatenaBookmarkCount ?? 0
-			nextCursor = `${count}:${lastItem.publishedAt.toISOString()}`
+			nextCursor = buildPopularCursor(lastItem.hatenaBookmarkCount ?? 0, lastItem.publishedAt)
 		} else {
 			nextCursor = lastItem.publishedAt.toISOString()
 		}

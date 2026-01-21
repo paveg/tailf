@@ -8,33 +8,29 @@
  * - ホスト名を小文字に
  */
 
-export function normalizeUrl(url: string): string {
-	let normalized = url.trim()
+import type { FeedType } from '../db/schema'
 
-	// プロトコルがなければ https:// を追加
-	if (!normalized.match(/^https?:\/\//i)) {
-		normalized = `https://${normalized}`
-	}
+/** Slide hosting services */
+const SLIDE_HOSTS = ['speakerdeck.com', 'slideshare.net', 'docswell.com']
+
+/**
+ * Detect feed type from URL based on hostname
+ */
+export function detectFeedType(feedUrl: string): FeedType {
+	const hostname = new URL(feedUrl).hostname.toLowerCase().replace(/^www\./, '')
+	return SLIDE_HOSTS.some((host) => hostname.includes(host)) ? 'slide' : 'blog'
+}
+
+export function normalizeUrl(url: string): string {
+	const trimmed = url.trim()
+	const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 
 	try {
-		const parsed = new URL(normalized)
-
-		// ホスト名を小文字に & www. を除去
-		let hostname = parsed.hostname.toLowerCase()
-		if (hostname.startsWith('www.')) {
-			hostname = hostname.slice(4)
-		}
-
-		// パスの末尾スラッシュを除去（ルート以外）
-		let pathname = parsed.pathname
-		if (pathname.length > 1 && pathname.endsWith('/')) {
-			pathname = pathname.slice(0, -1)
-		}
-
-		// 再構築
+		const parsed = new URL(withProtocol)
+		const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '')
+		const pathname = parsed.pathname.length > 1 ? parsed.pathname.replace(/\/$/, '') : '/'
 		return `https://${hostname}${pathname}${parsed.search}`
 	} catch {
-		// パースに失敗した場合はそのまま返す
-		return normalized
+		return withProtocol
 	}
 }
