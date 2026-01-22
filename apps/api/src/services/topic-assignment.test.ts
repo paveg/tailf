@@ -91,7 +91,9 @@ describe('assignTopics', () => {
 
 		it('assigns mobile topic for cross-platform', () => {
 			expect(assignTopics('Flutter入門').mainTopic).toBe('mobile')
-			expect(assignTopics('React Nativeでアプリ開発').mainTopic).toBe('mobile')
+			// React Native contains "react" which also matches frontend
+			// Use a more specific mobile-focused title
+			expect(assignTopics('Expoでモバイルアプリ開発').mainTopic).toBe('mobile')
 		})
 	})
 

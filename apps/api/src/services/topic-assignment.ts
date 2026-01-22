@@ -400,10 +400,11 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 	mobile: [
 		// Platforms
 		'ios',
+		'iphone',
+		'ipad',
 		'android',
 		'mobile',
-		'アプリ',
-		'app',
+		// Note: removed 'アプリ' and 'app' - too generic (web apps, desktop apps exist)
 		// iOS
 		'swift',
 		'swiftui',
@@ -437,11 +438,10 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 		'kotlin multiplatform',
 		'kmp',
 		// Japanese
-		'モバイル',
+		'モバイル開発',
 		'モバイルアプリ',
-		'スマートフォン',
-		'スマホ',
 		'ネイティブアプリ',
+		// Note: removed 'スマホ', 'スマートフォン' - too generic (matches gadget reviews)
 	],
 	oss: [
 		// Platforms & Community
