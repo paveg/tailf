@@ -321,14 +321,27 @@ function PostListContent({ allPosts }: PostListContentProps) {
 }
 
 function PostCardSkeleton() {
+	// Matches PostCard structure to prevent CLS
 	return (
-		<div className="rounded-lg border p-4">
-			<div className="mb-2 flex items-center gap-2">
-				<Skeleton className="size-6 rounded-full" />
-				<Skeleton className="h-4 w-20" />
+		<div className="overflow-hidden rounded-lg border">
+			{/* Thumbnail area - matches aspect-[2/1] */}
+			<Skeleton className="aspect-[2/1] w-full" />
+			{/* CardHeader content */}
+			<div className="space-y-2 p-4">
+				{/* Date and bookmark count row */}
+				<div className="flex items-center gap-3">
+					<Skeleton className="h-4 w-16" />
+					<Skeleton className="h-4 w-10" />
+				</div>
+				{/* Title (2 lines) */}
+				<Skeleton className="h-5 w-full" />
+				<Skeleton className="h-5 w-3/4" />
+				{/* Author row */}
+				<div className="flex items-center gap-2">
+					<Skeleton className="size-5 rounded-full" />
+					<Skeleton className="h-4 w-24" />
+				</div>
 			</div>
-			<Skeleton className="mb-2 h-5 w-full" />
-			<Skeleton className="h-5 w-3/4" />
 		</div>
 	)
 }
