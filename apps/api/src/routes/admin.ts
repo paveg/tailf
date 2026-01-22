@@ -246,75 +246,68 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 // POST /admin/posts/assign-topics - Assign topics to posts
 // Query params:
-//   force=true - reassign all posts (not just those without topics)
-//   limit=N - batch size (default: 100)
-//   offset=N - skip first N posts (for pagination in force mode)
+//   force=true - reassign ALL posts (loops internally until done)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
 	const force = c.req.query('force') === 'true'
-	const limit = Math.min(Number.parseInt(c.req.query('limit') ?? '100', 10) || 100, 1000)
-	const offset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0
 
-	// Get posts to update (all posts if force, otherwise only those without topics)
-	const postsToUpdate = await db.query.posts.findMany({
-		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
-		columns: { id: true, title: true, summary: true },
-		orderBy: (p, { asc }) => asc(p.id), // Consistent ordering for pagination
-		limit,
-		offset: force ? offset : undefined, // Only use offset in force mode
-	})
-
-	if (postsToUpdate.length === 0) {
-		return c.json({ message: 'No posts to update', updated: 0 })
-	}
-
-	let updated = 0
-	let noTopicMatched = 0
+	let totalUpdated = 0
+	let totalNoTopicMatched = 0
+	let totalProcessed = 0
 	const errors: string[] = []
 	const examples: Array<{ title: string; mainTopic: string | null; subTopic: string | null }> = []
 
-	for (const post of postsToUpdate) {
-		try {
-			const { mainTopic, subTopic } = assignTopics(post.title, post.summary)
+	const BATCH_SIZE = 100
 
-			await db.update(posts).set({ mainTopic, subTopic }).where(eq(posts.id, post.id))
+	// Loop until no more posts to process
+	while (true) {
+		const postsToUpdate = await db.query.posts.findMany({
+			where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+			columns: { id: true, title: true, summary: true },
+			orderBy: (p, { asc }) => asc(p.id),
+			limit: BATCH_SIZE,
+			offset: force ? totalProcessed : undefined,
+		})
 
-			if (mainTopic || subTopic) {
-				updated++
-				// Collect first 10 examples for reference
-				if (examples.length < 10) {
-					examples.push({ title: post.title, mainTopic, subTopic })
+		if (postsToUpdate.length === 0) {
+			break
+		}
+
+		for (const post of postsToUpdate) {
+			try {
+				const { mainTopic, subTopic } = assignTopics(post.title, post.summary)
+				await db.update(posts).set({ mainTopic, subTopic }).where(eq(posts.id, post.id))
+
+				if (mainTopic || subTopic) {
+					totalUpdated++
+					if (examples.length < 10) {
+						examples.push({ title: post.title, mainTopic, subTopic })
+					}
+				} else {
+					totalNoTopicMatched++
 				}
-			} else {
-				noTopicMatched++
+			} catch (error) {
+				errors.push(`${post.id}: ${error}`)
 			}
-		} catch (error) {
-			errors.push(`${post.id}: ${error}`)
+		}
+
+		totalProcessed += postsToUpdate.length
+
+		// In non-force mode, we process posts without topics, so no need for offset
+		if (!force) {
+			break
 		}
 	}
 
-	// Count remaining posts
-	let remainingCount: number
-	if (force) {
-		// In force mode: count total posts and calculate remaining from offset
-		const totalPosts = await db.query.posts.findMany({ columns: { id: true } })
-		remainingCount = Math.max(0, totalPosts.length - offset - postsToUpdate.length)
-	} else {
-		// Normal mode: count posts still without topics
-		const remaining = await db.query.posts.findMany({
-			where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
-			columns: { id: true },
-		})
-		remainingCount = remaining.length
+	if (totalProcessed === 0) {
+		return c.json({ message: 'No posts to update', updated: 0 })
 	}
 
 	return c.json({
-		message: `Assigned topics to ${updated} posts`,
-		updated,
-		noTopicMatched,
-		processed: postsToUpdate.length,
-		remaining: remainingCount,
-		nextOffset: force ? offset + postsToUpdate.length : undefined,
+		message: `Assigned topics to ${totalUpdated} posts`,
+		updated: totalUpdated,
+		noTopicMatched: totalNoTopicMatched,
+		processed: totalProcessed,
 		force,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
