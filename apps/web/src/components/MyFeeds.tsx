@@ -167,7 +167,7 @@ function MyFeedsContent() {
 						<TriangleAlert className="size-4" />
 						<AlertTitle>個人ブログ・スライドのみ登録可能</AlertTitle>
 						<AlertDescription className="text-amber-700 dark:text-amber-300">
-							企業テックブログは登録不可。違反フィードは予告なく削除されます。
+							企業テックブログは登録不可。違反フィードは予告なく削除されることがあります。
 						</AlertDescription>
 					</Alert>
 					<form onSubmit={handleRegister} className="flex gap-2">
