@@ -366,8 +366,9 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		}
 	}
 
-	// Batch insert new posts (chunks of 50 to stay within limits)
-	const BATCH_SIZE = 50
+	// Batch insert new posts (chunks of 20 to stay within SQLite variable limits)
+	// SQLite has a limit of 999 variables, and each post has ~10 columns
+	const BATCH_SIZE = 20
 	if (postsToInsert.length > 0) {
 		console.log(`[DB] Batch inserting ${postsToInsert.length} new posts...`)
 		for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
