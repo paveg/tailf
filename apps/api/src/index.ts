@@ -66,13 +66,16 @@ export default {
 	fetch: app.fetch,
 	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
 		const db = createDb(env.DB)
-		// Fetch new RSS posts, update bookmark counts, and reconcile feed bookmark counts in parallel
 		ctx.waitUntil(
-			Promise.all([
-				fetchRssFeeds(db, env.AI),
-				updateRecentBookmarkCounts(db),
-				reconcileBookmarkCounts(db),
-			]),
+			(async () => {
+				// Phase 1: RSS fetch + reconcile in parallel
+				// (reconcile is DB-only, no external API calls)
+				await Promise.all([fetchRssFeeds(db, env.AI), reconcileBookmarkCounts(db)])
+
+				// Phase 2: Hatena bookmark update (sequential to avoid subrequest limit)
+				// This runs after RSS fetch completes, spreading out external API calls
+				await updateRecentBookmarkCounts(db)
+			})(),
 		)
 	},
 }
