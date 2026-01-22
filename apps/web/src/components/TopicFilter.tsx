@@ -9,27 +9,20 @@ interface TopicFilterProps {
 
 export function TopicFilter({ value, onChange }: TopicFilterProps) {
 	return (
-		<div className="flex flex-wrap gap-1.5">
-			{/* All button */}
-			<Button
-				variant={value === null ? 'default' : 'outline'}
-				size="sm"
-				onClick={() => onChange(null)}
-				className="h-7 px-2.5 text-xs"
-			>
-				すべて
-			</Button>
-
+		<div className="flex flex-wrap gap-1">
 			{/* Topic buttons */}
 			{TOPICS.map((topic) => (
 				<Button
 					key={topic.id}
-					variant={value === topic.id ? 'default' : 'outline'}
+					variant="ghost"
 					size="sm"
 					onClick={() => onChange(value === topic.id ? null : topic.id)}
-					className={cn('h-7 px-2.5 text-xs', value === topic.id && 'font-medium')}
+					className={cn(
+						'h-7 px-2 text-xs text-muted-foreground',
+						value === topic.id && 'bg-accent text-accent-foreground font-medium',
+					)}
 				>
-					{topic.name}
+					#{topic.name}
 				</Button>
 			))}
 		</div>
