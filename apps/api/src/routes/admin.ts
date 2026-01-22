@@ -247,10 +247,12 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 // POST /admin/posts/assign-topics - Assign topics to posts
 // Query params:
 //   force=true - reassign all posts (not just those without topics)
+//   limit=N - batch size (default: 100)
 //   offset=N - skip first N posts (for pagination in force mode)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
 	const force = c.req.query('force') === 'true'
+	const limit = Math.min(Number.parseInt(c.req.query('limit') ?? '100', 10) || 100, 1000)
 	const offset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0
 
 	// Get posts to update (all posts if force, otherwise only those without topics)
@@ -258,7 +260,7 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
 		columns: { id: true, title: true, summary: true },
 		orderBy: (p, { asc }) => asc(p.id), // Consistent ordering for pagination
-		limit: 100, // Process in batches to avoid timeout
+		limit,
 		offset: force ? offset : undefined, // Only use offset in force mode
 	})
 
