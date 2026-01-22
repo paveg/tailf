@@ -72,9 +72,10 @@ export const queryKeys = {
 			official?: boolean,
 			sort?: SortOption,
 			excludeAuthorId?: string,
-		) => ['posts', 'list', { limit, techOnly, official, sort, excludeAuthorId }] as const,
-		search: (q: string, limit?: number, techOnly?: boolean, official?: boolean) =>
-			['posts', 'search', { q, limit, techOnly, official }] as const,
+			topic?: string,
+		) => ['posts', 'list', { limit, techOnly, official, sort, excludeAuthorId, topic }] as const,
+		search: (q: string, limit?: number, techOnly?: boolean, official?: boolean, topic?: string) =>
+			['posts', 'search', { q, limit, techOnly, official, topic }] as const,
 		ranking: (period: 'week' | 'month', limit: number, techOnly?: boolean) =>
 			['posts', 'ranking', period, limit, techOnly] as const,
 	},
@@ -101,11 +102,12 @@ export function useInfinitePosts(
 	official?: boolean,
 	sort: SortOption = 'recent',
 	excludeAuthorId?: string,
+	topic?: string,
 	initialData?: CursorResponse<PostWithFeed[]>,
 ) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.list(limit, techOnly, official, sort, excludeAuthorId),
-		(cursor) => getPosts({ cursor, limit, techOnly, official, sort, excludeAuthorId }),
+		queryKeys.posts.list(limit, techOnly, official, sort, excludeAuthorId, topic),
+		(cursor) => getPosts({ cursor, limit, techOnly, official, sort, excludeAuthorId, topic }),
 		{ initialData },
 	)
 }
@@ -115,10 +117,11 @@ export function useInfiniteSearchPosts(
 	limit = 12,
 	techOnly = false,
 	official?: boolean,
+	topic?: string,
 ) {
 	return createCursorInfiniteQuery(
-		queryKeys.posts.search(q, limit, techOnly, official),
-		(cursor) => searchPosts({ q, cursor, limit, techOnly, official }),
+		queryKeys.posts.search(q, limit, techOnly, official, topic),
+		(cursor) => searchPosts({ q, cursor, limit, techOnly, official, topic }),
 		{ enabled: q.length >= 2 },
 	)
 }

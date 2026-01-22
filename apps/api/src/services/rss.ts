@@ -3,6 +3,7 @@ import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { generateId } from '../utils/id'
 import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
+import { assignTopics } from './topic-assignment'
 
 interface RssItem {
 	title: string
@@ -305,6 +306,8 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 					const summary = item.description?.slice(0, 500)
 					// Use keyword-based score initially (fast, no API call)
 					const keywordScore = calculateTechScore(item.title, summary)
+					// Assign topics based on keyword matching
+					const { mainTopic, subTopic } = assignTopics(item.title, summary)
 
 					await db.insert(posts).values({
 						id: postId,
@@ -315,8 +318,13 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 						publishedAt,
 						feedId: feed.id,
 						techScore: keywordScore,
+						mainTopic,
+						subTopic,
 					})
-					console.log(`Added: ${item.title} (keyword techScore: ${keywordScore.toFixed(2)})`)
+					const topicsStr = [mainTopic, subTopic].filter(Boolean).join(', ') || 'none'
+					console.log(
+						`Added: ${item.title} (techScore: ${keywordScore.toFixed(2)}, topics: ${topicsStr})`,
+					)
 
 					// Collect for batch embedding calculation
 					newPosts.push({ id: postId, title: item.title, summary })

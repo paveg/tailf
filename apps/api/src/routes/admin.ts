@@ -1,7 +1,7 @@
 /**
  * Admin routes (protected by ADMIN_SECRET)
  */
-import { eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { Env } from '..'
 import type { Database } from '../db'
@@ -9,6 +9,7 @@ import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
 import { decodeHtmlEntities, fetchOgImage, parseFeed } from '../services/rss'
+import { assignTopics } from '../services/topic-assignment'
 
 type Variables = {
 	db: Database
@@ -239,6 +240,63 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 		totalWithoutThumbnails: postsWithoutThumbnails.length,
 		remainingWithoutThumbnails: postsStillMissingThumbnails.length - updatedFromOgp,
 		feedsProcessed: postsByFeed.size,
+		errors: errors.length > 0 ? errors : undefined,
+	})
+})
+
+// POST /admin/posts/assign-topics - Assign topics to posts without topics
+adminRoute.post('/posts/assign-topics', async (c) => {
+	const db = c.get('db')
+
+	// Get posts without topics assigned
+	const postsToUpdate = await db.query.posts.findMany({
+		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+		columns: { id: true, title: true, summary: true },
+		limit: 100, // Process in batches to avoid timeout
+	})
+
+	if (postsToUpdate.length === 0) {
+		return c.json({ message: 'No posts to update', updated: 0 })
+	}
+
+	let updated = 0
+	let noTopicMatched = 0
+	const errors: string[] = []
+	const examples: Array<{ title: string; mainTopic: string | null; subTopic: string | null }> = []
+
+	for (const post of postsToUpdate) {
+		try {
+			const { mainTopic, subTopic } = assignTopics(post.title, post.summary)
+
+			await db.update(posts).set({ mainTopic, subTopic }).where(eq(posts.id, post.id))
+
+			if (mainTopic || subTopic) {
+				updated++
+				// Collect first 10 examples for reference
+				if (examples.length < 10) {
+					examples.push({ title: post.title, mainTopic, subTopic })
+				}
+			} else {
+				noTopicMatched++
+			}
+		} catch (error) {
+			errors.push(`${post.id}: ${error}`)
+		}
+	}
+
+	// Count remaining posts without topics
+	const remaining = await db.query.posts.findMany({
+		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+		columns: { id: true },
+	})
+
+	return c.json({
+		message: `Assigned topics to ${updated} posts`,
+		updated,
+		noTopicMatched,
+		processed: postsToUpdate.length,
+		remaining: remaining.length,
+		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
 	})
 })

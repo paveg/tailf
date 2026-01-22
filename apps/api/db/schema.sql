@@ -1,5 +1,5 @@
 -- Auto-generated schema dump
--- Generated at: 2026-01-20 11:36:55 UTC
+-- Generated at: 2026-01-22 12:19:45 UTC
 -- DO NOT EDIT - This file is auto-generated from migrations
 
 -- ==========================================
@@ -166,4 +166,75 @@ CREATE INDEX `posts_feed_id_idx` ON `posts` (`feed_id`);
 CREATE INDEX `posts_published_at_idx` ON `posts` (`published_at`);
 --> statement-breakpoint
 CREATE INDEX `posts_tech_score_idx` ON `posts` (`tech_score`);
+
+-- ==========================================
+-- 0004_add_hatena_bookmark_count.sql
+-- ==========================================
+-- Add hatena bookmark count column to posts table
+ALTER TABLE posts ADD COLUMN hatena_bookmark_count INTEGER;
+--> statement-breakpoint
+CREATE INDEX posts_hatena_bookmark_count_idx ON posts (hatena_bookmark_count);
+
+-- ==========================================
+-- 0005_add_fts5_search.sql
+-- ==========================================
+-- FTS5 full-text search for posts
+-- Using trigram tokenizer for Japanese language support
+
+-- Create FTS5 virtual table (external content table referencing posts)
+CREATE VIRTUAL TABLE posts_fts USING fts5(
+  title,
+  summary,
+  content='posts',
+  content_rowid='rowid',
+  tokenize='trigram'
+);
+--> statement-breakpoint
+
+-- Populate FTS table with existing data
+INSERT INTO posts_fts(rowid, title, summary)
+SELECT rowid, title, COALESCE(summary, '') FROM posts;
+--> statement-breakpoint
+
+-- Trigger: sync on INSERT
+CREATE TRIGGER posts_fts_ai AFTER INSERT ON posts BEGIN
+  INSERT INTO posts_fts(rowid, title, summary)
+  VALUES (new.rowid, new.title, COALESCE(new.summary, ''));
+END;
+--> statement-breakpoint
+
+-- Trigger: sync on UPDATE
+CREATE TRIGGER posts_fts_au AFTER UPDATE ON posts BEGIN
+  INSERT INTO posts_fts(posts_fts, rowid, title, summary)
+  VALUES('delete', old.rowid, old.title, COALESCE(old.summary, ''));
+  INSERT INTO posts_fts(rowid, title, summary)
+  VALUES (new.rowid, new.title, COALESCE(new.summary, ''));
+END;
+--> statement-breakpoint
+
+-- Trigger: sync on DELETE
+CREATE TRIGGER posts_fts_ad AFTER DELETE ON posts BEGIN
+  INSERT INTO posts_fts(posts_fts, rowid, title, summary)
+  VALUES('delete', old.rowid, old.title, COALESCE(old.summary, ''));
+END;
+
+-- ==========================================
+-- 0006_rename_follows_to_feed_bookmarks.sql
+-- ==========================================
+-- Rename follows table to feed_bookmarks for better semantic clarity
+ALTER TABLE follows RENAME TO feed_bookmarks;
+
+-- ==========================================
+-- 0007_add_feed_bookmark_count.sql
+-- ==========================================
+-- Add bookmark_count column to feeds table
+ALTER TABLE feeds ADD COLUMN bookmark_count INTEGER NOT NULL DEFAULT 0;
+
+-- Update existing counts from feed_bookmarks table
+UPDATE feeds SET bookmark_count = (
+  SELECT COUNT(*) FROM feed_bookmarks WHERE feed_bookmarks.feed_id = feeds.id
+);
+
+-- Create index for sorting by bookmark_count
+CREATE INDEX feeds_bookmark_count_idx ON feeds(bookmark_count);
 

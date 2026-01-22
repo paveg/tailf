@@ -7,6 +7,7 @@ import type { Env } from '..'
 import type { Database } from '../db'
 import { feedBookmarks, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { topicsToArray } from '../services/topic-assignment'
 import { buildCursorResponse } from '../utils/pagination'
 
 // Tech filter threshold
@@ -66,7 +67,13 @@ userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async 
 		with: { feed: { with: { author: true } } },
 	})
 
-	return c.json(buildCursorResponse(result, limit))
+	// Add topics array to response
+	const postsWithTopics = result.map((post) => ({
+		...post,
+		topics: topicsToArray(post.mainTopic, post.subTopic),
+	}))
+
+	return c.json(buildCursorResponse(postsWithTopics, limit))
 })
 
 // Get user's bookmarked feeds
