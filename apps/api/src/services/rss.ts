@@ -209,14 +209,55 @@ export function parseFeed(xml: string): RssFeed | null {
 	return parseRss(xml)
 }
 
+/**
+ * Fetch og:image from a page URL
+ * Returns null if not found or on error
+ */
+export async function fetchOgImage(url: string): Promise<string | null> {
+	try {
+		const response = await fetch(url, {
+			headers: {
+				'User-Agent': 'tailf RSS Aggregator',
+			},
+		})
+
+		if (!response.ok) return null
+
+		const html = await response.text()
+
+		// Try og:image first
+		const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+		if (ogMatch) return ogMatch[1]
+
+		// Try reverse order (content before property)
+		const ogMatchReverse = html.match(
+			/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+		)
+		if (ogMatchReverse) return ogMatchReverse[1]
+
+		// Fallback: twitter:image
+		const twitterMatch = html.match(
+			/<meta[^>]+(?:name|property)=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+		)
+		if (twitterMatch) return twitterMatch[1]
+
+		return null
+	} catch (error) {
+		console.warn(`[OGP] Failed to fetch og:image for ${url}:`, error)
+		return null
+	}
+}
+
 export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	console.log('Starting RSS feed fetch...')
 	console.log(`[TechScore] Using ${ai ? 'batch embedding' : 'keyword-based'} scoring`)
 
 	const allFeeds = await db.query.feeds.findMany()
 
-	// Collect new posts for batch tech score calculation
+	// Collect new posts for batch processing
 	const newPosts: Array<{ id: string; title: string; summary?: string }> = []
+	// Collect posts without thumbnails for OGP fetch
+	const postsWithoutThumbnails: Array<{ id: string; url: string }> = []
 
 	for (const feed of allFeeds) {
 		try {
@@ -279,6 +320,11 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 					// Collect for batch embedding calculation
 					newPosts.push({ id: postId, title: item.title, summary })
+
+					// Collect for OGP fetch if no thumbnail from RSS
+					if (!item.thumbnail) {
+						postsWithoutThumbnails.push({ id: postId, url: item.link })
+					}
 				}
 			}
 		} catch (error) {
@@ -304,6 +350,33 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		} catch (error) {
 			console.warn('[TechScore] Batch embedding failed, keeping keyword scores:', error)
 		}
+	}
+
+	// Fetch OGP images for posts without thumbnails (limit to avoid subrequest issues)
+	const OGP_FETCH_LIMIT = 10
+	const postsToFetchOgp = postsWithoutThumbnails.slice(0, OGP_FETCH_LIMIT)
+
+	if (postsToFetchOgp.length > 0) {
+		console.log(
+			`[OGP] Fetching og:image for ${postsToFetchOgp.length} posts (${postsWithoutThumbnails.length} total without thumbnails)`,
+		)
+
+		let updated = 0
+		for (const post of postsToFetchOgp) {
+			try {
+				const ogImage = await fetchOgImage(post.url)
+				if (ogImage) {
+					await db.update(posts).set({ thumbnailUrl: ogImage }).where(eq(posts.id, post.id))
+					updated++
+					console.log(`[OGP] Updated thumbnail for post ${post.id}`)
+				}
+				// Rate limiting: 200ms between requests
+				await new Promise((resolve) => setTimeout(resolve, 200))
+			} catch (error) {
+				console.warn(`[OGP] Failed to process ${post.url}:`, error)
+			}
+		}
+		console.log(`[OGP] Updated ${updated}/${postsToFetchOgp.length} posts with og:image`)
 	}
 }
 
