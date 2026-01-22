@@ -246,10 +246,14 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 // POST /admin/posts/assign-topics - Assign topics to posts
 // Query params:
-//   force=true - reassign ALL posts (loops internally until done)
+//   force=true - reassign ALL posts
+//   limit=N - max posts per request (default: all, set for CPU limit safety)
+//   offset=N - start position (for pagination with limit)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
 	const force = c.req.query('force') === 'true'
+	const maxLimit = c.req.query('limit') ? Number.parseInt(c.req.query('limit') as string, 10) : null
+	const startOffset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0
 
 	let totalUpdated = 0
 	let totalNoTopicMatched = 0
@@ -259,14 +263,15 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 
 	const BATCH_SIZE = 100
 
-	// Loop until no more posts to process
-	while (true) {
+	// Loop until no more posts to process (or hit maxLimit)
+	while (maxLimit === null || totalProcessed < maxLimit) {
+		const remaining = maxLimit !== null ? maxLimit - totalProcessed : BATCH_SIZE
 		const postsToUpdate = await db.query.posts.findMany({
 			where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
 			columns: { id: true, title: true, summary: true },
 			orderBy: (p, { asc }) => asc(p.id),
-			limit: BATCH_SIZE,
-			offset: force ? totalProcessed : undefined,
+			limit: Math.min(BATCH_SIZE, remaining),
+			offset: force ? startOffset + totalProcessed : undefined,
 		})
 
 		if (postsToUpdate.length === 0) {
@@ -303,11 +308,16 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		return c.json({ message: 'No posts to update', updated: 0 })
 	}
 
+	// Get total count for progress info when using limit
+	const totalPosts = await db.query.posts.findMany({ columns: { id: true } })
+
 	return c.json({
 		message: `Assigned topics to ${totalUpdated} posts`,
 		updated: totalUpdated,
 		noTopicMatched: totalNoTopicMatched,
 		processed: totalProcessed,
+		total: totalPosts.length,
+		nextOffset: force && maxLimit !== null ? startOffset + totalProcessed : undefined,
 		force,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
