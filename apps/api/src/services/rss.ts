@@ -112,6 +112,14 @@ export function parseRss(xml: string): RssFeed | null {
 				if (!thumbnail && mediaMatch) {
 					thumbnail = mediaMatch[1]
 				}
+				// Fallback: extract first img from content:encoded or description
+				if (!thumbnail) {
+					const contentEncoded = getTagContent('content:encoded', itemContent)
+					const imgMatch = (contentEncoded || itemContent).match(/<img[^>]+src="([^"]+)"/i)
+					if (imgMatch) {
+						thumbnail = imgMatch[1]
+					}
+				}
 
 				const description = getTagContent('description', itemContent)
 				items.push({
@@ -165,6 +173,14 @@ export function parseAtom(xml: string): RssFeed | null {
 					const mediaMatch = entryContent.match(/<media:thumbnail[^>]+url="([^"]+)"/i)
 					if (mediaMatch) {
 						thumbnail = mediaMatch[1]
+					}
+				}
+				// Fallback: extract first img from content or summary
+				if (!thumbnail) {
+					const content = getTagContent('content', entryContent)
+					const imgMatch = (content || entryContent).match(/<img[^>]+src="([^"]+)"/i)
+					if (imgMatch) {
+						thumbnail = imgMatch[1]
 					}
 				}
 
