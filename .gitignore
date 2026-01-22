@@ -64,3 +64,6 @@ drizzle/meta/_journal.json.bak
 *.pid.lock
 .npm/
 og-image-original.png
+
+# Remotion output
+apps/demo/out/
