@@ -8,7 +8,7 @@ import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
-import { decodeHtmlEntities } from '../services/rss'
+import { decodeHtmlEntities, parseFeed } from '../services/rss'
 
 type Variables = {
 	db: Database
@@ -134,5 +134,84 @@ adminRoute.post('/posts/fix-entities', async (c) => {
 		updated,
 		total: allPosts.length,
 		fixed: fixed.length > 0 ? fixed.slice(0, 20) : undefined, // Show first 20 for reference
+	})
+})
+
+// POST /admin/posts/resync-thumbnails - Resync thumbnails for posts missing them
+adminRoute.post('/posts/resync-thumbnails', async (c) => {
+	const db = c.get('db')
+
+	// Get posts without thumbnails, grouped by feed
+	const postsWithoutThumbnails = await db.query.posts.findMany({
+		where: isNull(posts.thumbnailUrl),
+		columns: { id: true, url: true, feedId: true },
+	})
+
+	if (postsWithoutThumbnails.length === 0) {
+		return c.json({ message: 'No posts without thumbnails', updated: 0 })
+	}
+
+	// Group posts by feedId
+	const postsByFeed = new Map<string, Array<{ id: string; url: string }>>()
+	for (const post of postsWithoutThumbnails) {
+		const existing = postsByFeed.get(post.feedId) || []
+		existing.push({ id: post.id, url: post.url })
+		postsByFeed.set(post.feedId, existing)
+	}
+
+	// Get feed URLs
+	const feedIds = Array.from(postsByFeed.keys())
+	const feedRecords = await db.query.feeds.findMany({
+		where: (f, { inArray }) => inArray(f.id, feedIds),
+		columns: { id: true, feedUrl: true },
+	})
+
+	const feedUrlMap = new Map(feedRecords.map((f) => [f.id, f.feedUrl]))
+
+	let updated = 0
+	const errors: string[] = []
+
+	// Process each feed
+	for (const [feedId, feedPosts] of postsByFeed) {
+		const feedUrl = feedUrlMap.get(feedId)
+		if (!feedUrl) continue
+
+		try {
+			const response = await fetch(feedUrl, {
+				headers: { 'User-Agent': 'tailf RSS Aggregator' },
+			})
+			if (!response.ok) continue
+
+			const xml = await response.text()
+			const parsedFeed = parseFeed(xml)
+			if (!parsedFeed) continue
+
+			// Create a map of URL to thumbnail
+			const thumbnailMap = new Map<string, string>()
+			for (const item of parsedFeed.items) {
+				if (item.thumbnail) {
+					thumbnailMap.set(item.link, item.thumbnail)
+				}
+			}
+
+			// Update posts with matching thumbnails
+			for (const post of feedPosts) {
+				const thumbnail = thumbnailMap.get(post.url)
+				if (thumbnail) {
+					await db.update(posts).set({ thumbnailUrl: thumbnail }).where(eq(posts.id, post.id))
+					updated++
+				}
+			}
+		} catch (error) {
+			errors.push(`Feed ${feedId}: ${error}`)
+		}
+	}
+
+	return c.json({
+		message: `Updated ${updated} posts with thumbnails`,
+		updated,
+		totalWithoutThumbnails: postsWithoutThumbnails.length,
+		feedsProcessed: postsByFeed.size,
+		errors: errors.length > 0 ? errors : undefined,
 	})
 })
