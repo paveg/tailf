@@ -105,6 +105,7 @@ export interface GetPostsParams {
 	official?: boolean
 	sort?: SortOption
 	excludeAuthorId?: string
+	topic?: string
 }
 
 export async function getPosts(
@@ -119,6 +120,7 @@ export interface SearchPostsParams {
 	limit?: number
 	techOnly?: boolean
 	official?: boolean
+	topic?: string
 }
 
 export async function searchPosts(

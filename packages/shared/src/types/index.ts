@@ -12,6 +12,35 @@ export interface User {
 export const FEED_TYPES = ['blog', 'slide'] as const
 export type FeedType = (typeof FEED_TYPES)[number]
 
+// Topic types
+export const TOPIC_IDS = [
+	'ai',
+	'backend',
+	'cloud',
+	'data',
+	'devops',
+	'frontend',
+	'mobile',
+	'oss',
+	'security',
+	'web3',
+] as const
+export type TopicId = (typeof TOPIC_IDS)[number]
+
+// Topic metadata for UI display
+export const TOPICS: ReadonlyArray<{ id: TopicId; name: string }> = [
+	{ id: 'ai', name: 'AI' },
+	{ id: 'backend', name: 'バックエンド' },
+	{ id: 'cloud', name: 'クラウド' },
+	{ id: 'data', name: 'データ' },
+	{ id: 'devops', name: 'DevOps' },
+	{ id: 'frontend', name: 'フロントエンド' },
+	{ id: 'mobile', name: 'モバイル' },
+	{ id: 'oss', name: 'OSS' },
+	{ id: 'security', name: 'セキュリティ' },
+	{ id: 'web3', name: 'Web3' },
+]
+
 // Feed (RSS/Atom feed source: blog, slide, etc.)
 export interface Feed {
 	id: string
@@ -43,6 +72,8 @@ export interface Post {
 	feedId: string
 	techScore: number | null
 	hatenaBookmarkCount: number | null
+	// Topic assignment (populated from mainTopic/subTopic columns)
+	topics: string[]
 	createdAt: Date
 }
 

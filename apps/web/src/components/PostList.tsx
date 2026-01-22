@@ -13,7 +13,7 @@
  * - useInfinitePosts(12, techOnly, initialData) を使用
  * - visibleCount/filteredPosts のロジックを削除
  */
-import type { PostWithFeed } from '@tailf/shared'
+import { type PostWithFeed, TOPIC_IDS, type TopicId } from '@tailf/shared'
 import { Bookmark, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { SortOption } from '@/lib/api'
@@ -30,6 +30,7 @@ import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
 import { PostCard } from './PostCard'
 import { QueryProvider } from './QueryProvider'
 import { SearchInput } from './SearchInput'
+import { TopicFilter } from './TopicFilter'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
@@ -52,9 +53,14 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	const [bookmarkOnly, setBookmarkOnly] = useBooleanQueryParam('bookmark', false)
 	const [source, setSource] = useStringQueryParam<SourceFilter>('source', 'all', SOURCE_FILTERS)
 	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
+	const [topic, setTopic] = useStringQueryParam<TopicId | 'all'>('topic', 'all', [
+		'all',
+		...TOPIC_IDS,
+	])
 	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
 	const { data: user } = useCurrentUser()
+	const selectedTopic = topic === 'all' ? undefined : topic
 
 	const isSearching = debouncedQuery.length >= 2
 
@@ -62,12 +68,18 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	const useClientFetch = allPosts.length === 0 || bookmarkOnly
 	// Convert source filter to API parameter: all=undefined, personal=false, official=true
 	const official = source === 'all' ? undefined : source === 'official'
-	const apiQuery = useInfinitePosts(12, techOnly, official, sort)
+	const apiQuery = useInfinitePosts(12, techOnly, official, sort, undefined, selectedTopic)
 	// ブックマークフィルター用のクエリ
 	const bookmarkQuery = useInfiniteUserFeed(12, techOnly)
 
 	// Search uses API (can't pre-build search results)
-	const searchQueryResult = useInfiniteSearchPosts(debouncedQuery, 12, techOnly, official)
+	const searchQueryResult = useInfiniteSearchPosts(
+		debouncedQuery,
+		12,
+		techOnly,
+		official,
+		selectedTopic,
+	)
 
 	// APIから取得した記事
 	const apiPosts = useMemo(() => {
@@ -92,6 +104,10 @@ function PostListContent({ allPosts }: PostListContentProps) {
 			// SSGの場合はクライアントでフィルタ
 			posts = posts.filter((post) => (post.techScore ?? 0) >= 0.3)
 		}
+		// SSGの場合はクライアントでトピックフィルタ
+		if (selectedTopic && !useClientFetch) {
+			posts = posts.filter((post) => post.topics?.includes(selectedTopic))
+		}
 		// SSGの場合はクライアントでソート
 		if (!useClientFetch && sort === 'popular') {
 			posts = [...posts].sort((a, b) => {
@@ -102,7 +118,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 			})
 		}
 		return posts
-	}, [sourcePosts, techOnly, useClientFetch, sort])
+	}, [sourcePosts, techOnly, useClientFetch, sort, selectedTopic])
 
 	// Visible posts (client-side pagination for SSG)
 	const visiblePosts = useMemo(() => {
@@ -158,7 +174,7 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
 	useEffect(() => {
 		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly, source, sort, bookmarkOnly])
+	}, [techOnly, source, sort, bookmarkOnly, topic])
 
 	// Determine which posts to show
 	const displayPosts = isSearching
@@ -263,6 +279,12 @@ function PostListContent({ allPosts }: PostListContentProps) {
 						</TabsList>
 					</Tabs>
 				</div>
+
+				{/* Row 3: Topic filter (horizontal scroll) */}
+				<TopicFilter
+					value={topic === 'all' ? null : topic}
+					onChange={(t) => setTopic(t ?? 'all')}
+				/>
 			</div>
 
 			{/* Initial Loading */}

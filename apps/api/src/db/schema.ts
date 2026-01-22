@@ -67,6 +67,9 @@ export const posts = sqliteTable(
 			.references(() => feeds.id, { onDelete: 'cascade' }),
 		techScore: real('tech_score'), // 0.0〜1.0、技術記事度スコア（nullは未計算）
 		hatenaBookmarkCount: integer('hatena_bookmark_count'), // はてなブックマーク数（nullは未取得）
+		// Topic assignment (auto-assigned via keyword matching)
+		mainTopic: text('main_topic'), // Primary topic (highest keyword score)
+		subTopic: text('sub_topic'), // Secondary topic (second highest score, optional)
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -76,6 +79,8 @@ export const posts = sqliteTable(
 		index('posts_published_at_idx').on(table.publishedAt),
 		index('posts_tech_score_idx').on(table.techScore),
 		index('posts_hatena_bookmark_count_idx').on(table.hatenaBookmarkCount),
+		index('posts_main_topic_idx').on(table.mainTopic),
+		index('posts_sub_topic_idx').on(table.subTopic),
 	],
 )
 

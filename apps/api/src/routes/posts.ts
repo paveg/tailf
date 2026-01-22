@@ -19,6 +19,7 @@ import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { topicsToArray } from '../services/topic-assignment'
 import { parsePopularCursor } from '../utils/cursor'
 import { getThreshold } from '../utils/date'
 import { buildCursorResponse } from '../utils/pagination'
@@ -27,7 +28,7 @@ import { buildCursorResponse } from '../utils/pagination'
 // 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
 const TECH_SCORE_THRESHOLD = 0.65
 
-// Extended schema with techOnly, official, sort, and excludeAuthorId filters
+// Extended schema with techOnly, official, sort, excludeAuthorId, and topic filters
 const postsQuerySchema = v.object({
 	...cursorPaginationQuerySchema.entries,
 	techOnly: v.optional(
@@ -44,6 +45,8 @@ const postsQuerySchema = v.object({
 	),
 	sort: v.optional(v.picklist(['recent', 'popular']), 'recent'),
 	excludeAuthorId: v.optional(v.string()),
+	// Topic filter (single select, matches mainTopic or subTopic)
+	topic: v.optional(v.string()),
 })
 
 /**
@@ -76,7 +79,7 @@ export const postsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 // Get latest posts (timeline) - cursor-based pagination
 postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
-	const { cursor, limit, techOnly, official, sort, excludeAuthorId } = c.req.valid('query')
+	const { cursor, limit, techOnly, official, sort, excludeAuthorId, topic } = c.req.valid('query')
 	const db = c.get('db')
 
 	// Cursor condition depends on sort type
@@ -116,9 +119,18 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 		}
 	}
 
-	const conditions = [cursorCondition, techCondition, officialCondition, excludeCondition].filter(
-		Boolean,
-	)
+	// Topic filter: match mainTopic or subTopic
+	const topicCondition = topic
+		? or(eq(posts.mainTopic, topic), eq(posts.subTopic, topic))
+		: undefined
+
+	const conditions = [
+		cursorCondition,
+		techCondition,
+		officialCondition,
+		excludeCondition,
+		topicCondition,
+	].filter(Boolean)
 
 	// Order by sort type
 	const orderBy =
@@ -133,7 +145,13 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 		with: { feed: { with: { author: true } } },
 	})
 
-	return c.json(buildCursorResponse(result, limit, sort))
+	// Add topics array to response
+	const postsWithTopics = result.map((post) => ({
+		...post,
+		topics: topicsToArray(post.mainTopic, post.subTopic),
+	}))
+
+	return c.json(buildCursorResponse(postsWithTopics, limit, sort))
 })
 
 // Minimum query length for FTS5 trigram search (3 characters required)
@@ -175,7 +193,7 @@ postsRoute.get(
 		}),
 	),
 	async (c) => {
-		const { q, cursor, limit, techOnly, official } = c.req.valid('query')
+		const { q, cursor, limit, techOnly, official, topic } = c.req.valid('query')
 		const db = c.get('db')
 
 		// Official filter - resolve feed IDs upfront
@@ -198,6 +216,9 @@ postsRoute.get(
 			const officialCondition = officialFeedIds
 				? sql`AND p.feed_id IN (${buildSqlInClause(officialFeedIds)})`
 				: sql``
+			const topicCondition = topic
+				? sql`AND (p.main_topic = ${topic} OR p.sub_topic = ${topic})`
+				: sql``
 
 			const ftsResult = await db.all<{ id: string }>(sql`
 				SELECT p.id FROM posts p
@@ -206,6 +227,7 @@ postsRoute.get(
 				${cursorCondition}
 				${techCondition}
 				${officialCondition}
+				${topicCondition}
 				ORDER BY p.published_at DESC
 				LIMIT ${limit + 1}
 			`)
@@ -220,16 +242,24 @@ postsRoute.get(
 				orderBy: [desc(posts.publishedAt)],
 				with: { feed: { with: { author: true } } },
 			})
-			return c.json(buildSearchResponse(result, limit, q))
+			const postsWithTopics = result.map((post) => ({
+				...post,
+				topics: topicsToArray(post.mainTopic, post.subTopic),
+			}))
+			return c.json(buildSearchResponse(postsWithTopics, limit, q))
 		}
 
 		// LIKE fallback for short queries (< 3 chars)
 		const searchTerm = `%${q}%`
+		const topicCondition = topic
+			? or(eq(posts.mainTopic, topic), eq(posts.subTopic, topic))
+			: undefined
 		const conditions = [
 			or(like(posts.title, searchTerm), like(posts.summary, searchTerm)),
 			cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined,
 			techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined,
 			officialFeedIds ? inArray(posts.feedId, officialFeedIds) : undefined,
+			topicCondition,
 		].filter(Boolean)
 
 		const result = await db.query.posts.findMany({
@@ -238,7 +268,11 @@ postsRoute.get(
 			orderBy: [desc(posts.publishedAt)],
 			with: { feed: { with: { author: true } } },
 		})
-		return c.json(buildSearchResponse(result, limit, q))
+		const postsWithTopics = result.map((post) => ({
+			...post,
+			topics: topicsToArray(post.mainTopic, post.subTopic),
+		}))
+		return c.json(buildSearchResponse(postsWithTopics, limit, q))
 	},
 )
 
@@ -289,8 +323,14 @@ postsRoute.get(
 			actualPeriod = 'month'
 		}
 
+		// Add topics array to response
+		const postsWithTopics = result.map((post) => ({
+			...post,
+			topics: topicsToArray(post.mainTopic, post.subTopic),
+		}))
+
 		return c.json({
-			data: result,
+			data: postsWithTopics,
 			meta: {
 				period: actualPeriod,
 				requestedPeriod,
