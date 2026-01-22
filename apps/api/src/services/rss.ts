@@ -152,6 +152,22 @@ export function parseAtom(xml: string): RssFeed | null {
 			const itemLink = getLinkHref(entryContent)
 
 			if (itemTitle && itemLink) {
+				// Try to get thumbnail from enclosure link (common in Hatena Blog)
+				let thumbnail: string | undefined
+				const enclosureMatch = entryContent.match(
+					/<link[^>]+rel="enclosure"[^>]+href="([^"]+)"[^>]+type="image/i,
+				)
+				if (enclosureMatch) {
+					thumbnail = enclosureMatch[1]
+				}
+				// Also try media:thumbnail (some Atom feeds use this)
+				if (!thumbnail) {
+					const mediaMatch = entryContent.match(/<media:thumbnail[^>]+url="([^"]+)"/i)
+					if (mediaMatch) {
+						thumbnail = mediaMatch[1]
+					}
+				}
+
 				const itemDescription =
 					getTagContent('summary', entryContent) || getTagContent('content', entryContent)
 				items.push({
@@ -160,6 +176,7 @@ export function parseAtom(xml: string): RssFeed | null {
 					description: cleanDescription(itemDescription),
 					pubDate:
 						getTagContent('published', entryContent) || getTagContent('updated', entryContent),
+					thumbnail,
 				})
 			}
 		}
