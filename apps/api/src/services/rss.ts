@@ -255,8 +255,28 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 	const allFeeds = await db.query.feeds.findMany()
 
-	// Collect new posts for batch processing
-	const newPosts: Array<{ id: string; title: string; summary?: string }> = []
+	// Get all existing post URLs in ONE query to avoid N+1
+	const existingPosts = await db.query.posts.findMany({
+		columns: { url: true },
+	})
+	const existingUrls = new Set(existingPosts.map((p) => p.url))
+	console.log(`[DB] Found ${existingUrls.size} existing posts`)
+
+	// Collect new posts for batch insert
+	const postsToInsert: Array<{
+		id: string
+		title: string
+		summary: string | null
+		url: string
+		thumbnailUrl: string | null
+		publishedAt: Date
+		feedId: string
+		techScore: number
+		mainTopic: string | null
+		subTopic: string | null
+	}> = []
+	// Collect feed description updates
+	const feedDescriptionUpdates: Array<{ id: string; description: string }> = []
 	// Collect posts without thumbnails for OGP fetch
 	const postsWithoutThumbnails: Array<{ id: string; url: string }> = []
 
@@ -283,56 +303,46 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 				continue
 			}
 
-			// Update feed metadata if description is missing
+			// Collect feed description update
 			if (!feed.description && parsedFeed.description) {
-				await db
-					.update(feeds)
-					.set({ description: parsedFeed.description.slice(0, 500) })
-					.where(eq(feeds.id, feed.id))
-				console.log(`Updated description for: ${feed.title}`)
+				feedDescriptionUpdates.push({
+					id: feed.id,
+					description: parsedFeed.description.slice(0, 500),
+				})
 			}
 
-			// Insert new posts with keyword-based score initially
+			// Collect new posts
 			for (const item of parsedFeed.items) {
+				// Skip if already exists (using Set lookup - O(1))
+				if (existingUrls.has(item.link)) {
+					continue
+				}
+
+				const postId = generateId()
+				const summary = item.description?.slice(0, 500) ?? null
+				const keywordScore = calculateTechScore(item.title, summary ?? undefined)
+				const { mainTopic, subTopic } = assignTopics(item.title, summary ?? undefined)
 				const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date()
 
-				// Check if post already exists
-				const existing = await db.query.posts.findFirst({
-					where: eq(posts.url, item.link),
+				postsToInsert.push({
+					id: postId,
+					title: item.title,
+					summary,
+					url: item.link,
+					thumbnailUrl: item.thumbnail ?? null,
+					publishedAt,
+					feedId: feed.id,
+					techScore: keywordScore,
+					mainTopic,
+					subTopic,
 				})
 
-				if (!existing) {
-					const postId = generateId()
-					const summary = item.description?.slice(0, 500)
-					// Use keyword-based score initially (fast, no API call)
-					const keywordScore = calculateTechScore(item.title, summary)
-					// Assign topics based on keyword matching
-					const { mainTopic, subTopic } = assignTopics(item.title, summary)
+				// Mark URL as existing to avoid duplicates within this run
+				existingUrls.add(item.link)
 
-					await db.insert(posts).values({
-						id: postId,
-						title: item.title,
-						summary,
-						url: item.link,
-						thumbnailUrl: item.thumbnail,
-						publishedAt,
-						feedId: feed.id,
-						techScore: keywordScore,
-						mainTopic,
-						subTopic,
-					})
-					const topicsStr = [mainTopic, subTopic].filter(Boolean).join(', ') || 'none'
-					console.log(
-						`Added: ${item.title} (techScore: ${keywordScore.toFixed(2)}, topics: ${topicsStr})`,
-					)
-
-					// Collect for batch embedding calculation
-					newPosts.push({ id: postId, title: item.title, summary })
-
-					// Collect for OGP fetch if no thumbnail from RSS
-					if (!item.thumbnail) {
-						postsWithoutThumbnails.push({ id: postId, url: item.link })
-					}
+				// Collect for OGP fetch if no thumbnail from RSS
+				if (!item.thumbnail) {
+					postsWithoutThumbnails.push({ id: postId, url: item.link })
 				}
 			}
 		} catch (error) {
@@ -340,28 +350,62 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		}
 	}
 
+	// Batch insert new posts (chunks of 50 to stay within limits)
+	const BATCH_SIZE = 50
+	if (postsToInsert.length > 0) {
+		console.log(`[DB] Batch inserting ${postsToInsert.length} new posts...`)
+		for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
+			const chunk = postsToInsert.slice(i, i + BATCH_SIZE)
+			await db.insert(posts).values(chunk)
+			console.log(
+				`[DB] Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(postsToInsert.length / BATCH_SIZE)}`,
+			)
+		}
+		for (const post of postsToInsert) {
+			const topicsStr = [post.mainTopic, post.subTopic].filter(Boolean).join(', ') || 'none'
+			console.log(
+				`Added: ${post.title} (techScore: ${post.techScore.toFixed(2)}, topics: ${topicsStr})`,
+			)
+		}
+	}
+
+	// Batch update feed descriptions
+	for (const update of feedDescriptionUpdates) {
+		await db.update(feeds).set({ description: update.description }).where(eq(feeds.id, update.id))
+		console.log(`Updated description for feed ${update.id}`)
+	}
+
 	console.log('RSS feed fetch complete.')
 
 	// Batch calculate embedding-based tech scores for new posts
-	if (ai && newPosts.length > 0) {
-		console.log(`[TechScore] Batch calculating embeddings for ${newPosts.length} new posts...`)
+	if (ai && postsToInsert.length > 0) {
+		console.log(`[TechScore] Batch calculating embeddings for ${postsToInsert.length} new posts...`)
 		try {
-			const scores = await calculateTechScoresBatch(ai, newPosts)
+			const postsForScoring = postsToInsert.map((p) => ({
+				id: p.id,
+				title: p.title,
+				summary: p.summary ?? undefined,
+			}))
+			const scores = await calculateTechScoresBatch(ai, postsForScoring)
 
-			// Update posts with embedding-based scores
-			for (let i = 0; i < newPosts.length; i++) {
-				const post = newPosts[i]
-				const embeddingScore = scores[i]
-				await db.update(posts).set({ techScore: embeddingScore }).where(eq(posts.id, post.id))
+			// Batch update scores (chunks of 50)
+			for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
+				const chunk = postsToInsert.slice(i, i + BATCH_SIZE)
+				for (let j = 0; j < chunk.length; j++) {
+					await db
+						.update(posts)
+						.set({ techScore: scores[i + j] })
+						.where(eq(posts.id, chunk[j].id))
+				}
 			}
-			console.log(`[TechScore] Updated ${newPosts.length} posts with embedding scores`)
+			console.log(`[TechScore] Updated ${postsToInsert.length} posts with embedding scores`)
 		} catch (error) {
 			console.warn('[TechScore] Batch embedding failed, keeping keyword scores:', error)
 		}
 	}
 
 	// Fetch OGP images for posts without thumbnails (limit to avoid subrequest issues)
-	const OGP_FETCH_LIMIT = 10
+	const OGP_FETCH_LIMIT = 5
 	const postsToFetchOgp = postsWithoutThumbnails.slice(0, OGP_FETCH_LIMIT)
 
 	if (postsToFetchOgp.length > 0) {
