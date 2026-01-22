@@ -8,7 +8,7 @@ import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
-import { decodeHtmlEntities, parseFeed } from '../services/rss'
+import { decodeHtmlEntities, fetchOgImage, parseFeed } from '../services/rss'
 
 type Variables = {
 	db: Database
@@ -168,10 +168,12 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 	const feedUrlMap = new Map(feedRecords.map((f) => [f.id, f.feedUrl]))
 
-	let updated = 0
+	let updatedFromRss = 0
+	let updatedFromOgp = 0
 	const errors: string[] = []
+	const postsStillMissingThumbnails: Array<{ id: string; url: string }> = []
 
-	// Process each feed
+	// Phase 1: Try to get thumbnails from RSS feeds
 	for (const [feedId, feedPosts] of postsByFeed) {
 		const feedUrl = feedUrlMap.get(feedId)
 		if (!feedUrl) continue
@@ -199,18 +201,43 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 				const thumbnail = thumbnailMap.get(post.url)
 				if (thumbnail) {
 					await db.update(posts).set({ thumbnailUrl: thumbnail }).where(eq(posts.id, post.id))
-					updated++
+					updatedFromRss++
+				} else {
+					// Collect for OGP fallback
+					postsStillMissingThumbnails.push(post)
 				}
 			}
 		} catch (error) {
 			errors.push(`Feed ${feedId}: ${error}`)
+			// Add all posts from failed feed to OGP fallback
+			postsStillMissingThumbnails.push(...feedPosts)
+		}
+	}
+
+	// Phase 2: OGP fallback for posts still missing thumbnails (limit to 20)
+	const OGP_LIMIT = 20
+	const postsForOgp = postsStillMissingThumbnails.slice(0, OGP_LIMIT)
+
+	for (const post of postsForOgp) {
+		try {
+			const ogImage = await fetchOgImage(post.url)
+			if (ogImage) {
+				await db.update(posts).set({ thumbnailUrl: ogImage }).where(eq(posts.id, post.id))
+				updatedFromOgp++
+			}
+			// Rate limiting: 200ms between requests
+			await new Promise((resolve) => setTimeout(resolve, 200))
+		} catch (error) {
+			errors.push(`OGP ${post.id}: ${error}`)
 		}
 	}
 
 	return c.json({
-		message: `Updated ${updated} posts with thumbnails`,
-		updated,
+		message: `Updated ${updatedFromRss + updatedFromOgp} posts with thumbnails`,
+		updatedFromRss,
+		updatedFromOgp,
 		totalWithoutThumbnails: postsWithoutThumbnails.length,
+		remainingWithoutThumbnails: postsStillMissingThumbnails.length - updatedFromOgp,
 		feedsProcessed: postsByFeed.size,
 		errors: errors.length > 0 ? errors : undefined,
 	})
