@@ -244,13 +244,15 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 	})
 })
 
-// POST /admin/posts/assign-topics - Assign topics to posts without topics
+// POST /admin/posts/assign-topics - Assign topics to posts
+// Query params: force=true to reassign all posts (not just those without topics)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
+	const force = c.req.query('force') === 'true'
 
-	// Get posts without topics assigned
+	// Get posts to update (all posts if force, otherwise only those without topics)
 	const postsToUpdate = await db.query.posts.findMany({
-		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
 		columns: { id: true, title: true, summary: true },
 		limit: 100, // Process in batches to avoid timeout
 	})
@@ -284,9 +286,9 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		}
 	}
 
-	// Count remaining posts without topics
+	// Count remaining posts (all posts if force mode, otherwise only those without topics)
 	const remaining = await db.query.posts.findMany({
-		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
 		columns: { id: true },
 	})
 
@@ -296,6 +298,7 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		noTopicMatched,
 		processed: postsToUpdate.length,
 		remaining: remaining.length,
+		force,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
 	})
