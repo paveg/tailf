@@ -244,58 +244,81 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 	})
 })
 
-// POST /admin/posts/assign-topics - Assign topics to posts without topics
+// POST /admin/posts/assign-topics - Assign topics to posts
+// Query params:
+//   force=true - reassign ALL posts
+//   limit=N - max posts per request (default: all, set for CPU limit safety)
+//   offset=N - start position (for pagination with limit)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
+	const force = c.req.query('force') === 'true'
+	const maxLimit = c.req.query('limit') ? Number.parseInt(c.req.query('limit') as string, 10) : null
+	const startOffset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0
 
-	// Get posts without topics assigned
-	const postsToUpdate = await db.query.posts.findMany({
-		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
-		columns: { id: true, title: true, summary: true },
-		limit: 100, // Process in batches to avoid timeout
-	})
-
-	if (postsToUpdate.length === 0) {
-		return c.json({ message: 'No posts to update', updated: 0 })
-	}
-
-	let updated = 0
-	let noTopicMatched = 0
+	let totalUpdated = 0
+	let totalNoTopicMatched = 0
+	let totalProcessed = 0
 	const errors: string[] = []
 	const examples: Array<{ title: string; mainTopic: string | null; subTopic: string | null }> = []
 
-	for (const post of postsToUpdate) {
-		try {
-			const { mainTopic, subTopic } = assignTopics(post.title, post.summary)
+	const BATCH_SIZE = 100
 
-			await db.update(posts).set({ mainTopic, subTopic }).where(eq(posts.id, post.id))
+	// Loop until no more posts to process (or hit maxLimit)
+	while (maxLimit === null || totalProcessed < maxLimit) {
+		const remaining = maxLimit !== null ? maxLimit - totalProcessed : BATCH_SIZE
+		const postsToUpdate = await db.query.posts.findMany({
+			where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+			columns: { id: true, title: true, summary: true },
+			orderBy: (p, { asc }) => asc(p.id),
+			limit: Math.min(BATCH_SIZE, remaining),
+			offset: force ? startOffset + totalProcessed : undefined,
+		})
 
-			if (mainTopic || subTopic) {
-				updated++
-				// Collect first 10 examples for reference
-				if (examples.length < 10) {
-					examples.push({ title: post.title, mainTopic, subTopic })
+		if (postsToUpdate.length === 0) {
+			break
+		}
+
+		for (const post of postsToUpdate) {
+			try {
+				const { mainTopic, subTopic } = assignTopics(post.title, post.summary)
+				await db.update(posts).set({ mainTopic, subTopic }).where(eq(posts.id, post.id))
+
+				if (mainTopic || subTopic) {
+					totalUpdated++
+					if (examples.length < 10) {
+						examples.push({ title: post.title, mainTopic, subTopic })
+					}
+				} else {
+					totalNoTopicMatched++
 				}
-			} else {
-				noTopicMatched++
+			} catch (error) {
+				errors.push(`${post.id}: ${error}`)
 			}
-		} catch (error) {
-			errors.push(`${post.id}: ${error}`)
+		}
+
+		totalProcessed += postsToUpdate.length
+
+		// In non-force mode, we process posts without topics, so no need for offset
+		if (!force) {
+			break
 		}
 	}
 
-	// Count remaining posts without topics
-	const remaining = await db.query.posts.findMany({
-		where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
-		columns: { id: true },
-	})
+	if (totalProcessed === 0) {
+		return c.json({ message: 'No posts to update', updated: 0 })
+	}
+
+	// Get total count for progress info when using limit
+	const totalPosts = await db.query.posts.findMany({ columns: { id: true } })
 
 	return c.json({
-		message: `Assigned topics to ${updated} posts`,
-		updated,
-		noTopicMatched,
-		processed: postsToUpdate.length,
-		remaining: remaining.length,
+		message: `Assigned topics to ${totalUpdated} posts`,
+		updated: totalUpdated,
+		noTopicMatched: totalNoTopicMatched,
+		processed: totalProcessed,
+		total: totalPosts.length,
+		nextOffset: force && maxLimit !== null ? startOffset + totalProcessed : undefined,
+		force,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
 	})
