@@ -30,13 +30,24 @@ function getTagContent(tag: string, content: string): string | undefined {
 /**
  * Extract href from link tag (for Atom feeds)
  * Prefers rel="alternate" links, falls back to any link with href
+ * Supports both single and double quotes (Blogger uses single quotes)
  */
 function getLinkHref(content: string): string | undefined {
-	const altMatch = content.match(/<link[^>]+href="([^"]+)"[^>]*rel="alternate"/i)
-	if (altMatch) return altMatch[1]
+	// Try double quotes first (more common)
+	const altMatchDouble = content.match(/<link[^>]+href="([^"]+)"[^>]*rel="alternate"/i)
+	if (altMatchDouble) return altMatchDouble[1]
 
-	const simpleMatch = content.match(/<link[^>]+href="([^"]+)"/i)
-	return simpleMatch?.[1]
+	// Try single quotes (Blogger format)
+	const altMatchSingle = content.match(/<link[^>]+href='([^']+)'[^>]*rel='alternate'/i)
+	if (altMatchSingle) return altMatchSingle[1]
+
+	// Fallback: any link with href (double quotes)
+	const simpleMatchDouble = content.match(/<link[^>]+href="([^"]+)"/i)
+	if (simpleMatchDouble) return simpleMatchDouble[1]
+
+	// Fallback: any link with href (single quotes)
+	const simpleMatchSingle = content.match(/<link[^>]+href='([^']+)'/i)
+	return simpleMatchSingle?.[1]
 }
 
 /**
@@ -204,7 +215,12 @@ export function parseAtom(xml: string): RssFeed | null {
 }
 
 export function parseFeed(xml: string): RssFeed | null {
-	if (xml.includes('<feed') && xml.includes('xmlns="http://www.w3.org/2005/Atom"')) {
+	// Check for Atom format (supports both single and double quotes in xmlns)
+	if (
+		xml.includes('<feed') &&
+		(xml.includes('xmlns="http://www.w3.org/2005/Atom"') ||
+			xml.includes("xmlns='http://www.w3.org/2005/Atom'"))
+	) {
 		return parseAtom(xml)
 	}
 	return parseRss(xml)

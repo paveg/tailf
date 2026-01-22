@@ -521,6 +521,27 @@ describe('parseFeed', () => {
 		expect(result?.title).toBe('Atom Blog')
 	})
 
+	it('detects and parses Blogger-style Atom feed with single quotes', () => {
+		// Blogger uses single quotes for xmlns declaration
+		const bloggerAtomXml = `<?xml version='1.0' encoding='UTF-8'?>
+			<feed xmlns='http://www.w3.org/2005/Atom'>
+				<title type='text'>Google Developers Japan</title>
+				<link rel='alternate' type='text/html' href='https://developers-jp.googleblog.com/'/>
+				<entry>
+					<title type='text'>テスト記事</title>
+					<link rel='alternate' type='text/html' href='https://developers-jp.googleblog.com/2025/01/test.html'/>
+				</entry>
+			</feed>`
+
+		const result = parseFeed(bloggerAtomXml)
+
+		expect(result).not.toBeNull()
+		expect(result?.title).toBe('Google Developers Japan')
+		expect(result?.items).toHaveLength(1)
+		expect(result?.items[0].title).toBe('テスト記事')
+		expect(result?.items[0].link).toBe('https://developers-jp.googleblog.com/2025/01/test.html')
+	})
+
 	it('detects and parses RSS feed', () => {
 		const rssXml = `<?xml version="1.0"?>
 			<rss version="2.0">
