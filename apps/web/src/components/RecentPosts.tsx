@@ -27,13 +27,21 @@ function RecentPostsContent({ initialPosts }: RecentPostsContentProps) {
 		return (
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 				{Array.from({ length: 6 }).map((_, i) => (
-					<div key={i} className="rounded-lg border p-4">
-						<div className="mb-2 flex items-center gap-2">
-							<Skeleton className="size-6 rounded-full" />
-							<Skeleton className="h-4 w-20" />
+					// Matches PostCard structure to prevent CLS
+					<div key={i} className="overflow-hidden rounded-lg border">
+						<Skeleton className="aspect-[2/1] w-full" />
+						<div className="space-y-2 p-4">
+							<div className="flex items-center gap-3">
+								<Skeleton className="h-4 w-16" />
+								<Skeleton className="h-4 w-10" />
+							</div>
+							<Skeleton className="h-5 w-full" />
+							<Skeleton className="h-5 w-3/4" />
+							<div className="flex items-center gap-2">
+								<Skeleton className="size-5 rounded-full" />
+								<Skeleton className="h-4 w-24" />
+							</div>
 						</div>
-						<Skeleton className="mb-2 h-5 w-full" />
-						<Skeleton className="h-5 w-3/4" />
 					</div>
 				))}
 			</div>

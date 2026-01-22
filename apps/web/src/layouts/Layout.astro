@@ -93,9 +93,9 @@ const isProd = import.meta.env.PROD
 						-->
 					</nav>
 					<div class="ml-auto flex items-center gap-2">
-						<MobileNav client:load />
+						<MobileNav client:idle />
 						<div class="hidden md:block">
-							<UserMenu client:load />
+							<UserMenu client:idle />
 						</div>
 					</div>
 				</div>
@@ -118,7 +118,7 @@ const isProd = import.meta.env.PROD
 				</div>
 			</footer>
 		</div>
-		<Toaster client:load position="top-right" />
+		<Toaster client:idle position="top-right" />
 		<!-- Cloudflare Web Analytics (production only) -->
 		{isProd && <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "13c59bd451114e2f8c867ea9293d6c3f"}'></script>}
 	</body>
