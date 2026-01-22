@@ -300,6 +300,32 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 		'ポストモーテム',
 		'自動化',
 		'運用',
+		// Dev Environment & Tools
+		'dotfiles',
+		'devbox',
+		'chezmoi',
+		'nix',
+		'homebrew',
+		'brew',
+		'zsh',
+		'bash',
+		'fish',
+		'shell',
+		'terminal',
+		'iterm',
+		'wezterm',
+		'ghostty',
+		'alacritty',
+		'tmux',
+		'vim',
+		'neovim',
+		'nvim',
+		'emacs',
+		// Japanese Dev Environment
+		'開発環境',
+		'ターミナル',
+		'シェル',
+		'エディタ',
 	],
 	frontend: [
 		// Frameworks & Libraries
@@ -429,10 +455,8 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 		'contributor',
 		'maintainer',
 		'pull request',
-		'pr',
-		'issue',
-		'fork',
-		'star',
+		// Note: removed 'pr' - too short, causes false positives (e.g., "PREDUCTS")
+		// Note: removed 'issue', 'fork', 'star' - too generic
 		// Community
 		'community',
 		'hacktoberfest',
