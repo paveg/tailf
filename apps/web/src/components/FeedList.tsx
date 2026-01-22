@@ -14,7 +14,7 @@ import {
 	useFeeds,
 	useUnbookmarkFeed,
 } from '@/lib/hooks'
-import { useBooleanQueryParam, useStringQueryParam } from '@/lib/useQueryParams'
+import { useStringQueryParam } from '@/lib/useQueryParams'
 import { QueryProvider } from './QueryProvider'
 import { SearchInput } from './SearchInput'
 import { Button } from './ui/button'
@@ -22,10 +22,12 @@ import { Card, CardHeader, CardTitle } from './ui/card'
 import { Empty } from './ui/empty'
 import { Skeleton } from './ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
-import { Toggle } from './ui/toggle'
 
 type SortOption = 'recent' | 'popular'
 const SORT_OPTIONS = ['recent', 'popular'] as const
+
+type SourceFilter = 'all' | 'personal' | 'official'
+const SOURCE_FILTERS = ['all', 'personal', 'official'] as const
 
 interface FeedListContentProps {
 	initialFeeds: FeedWithAuthor[]
@@ -33,10 +35,11 @@ interface FeedListContentProps {
 
 function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
-	const [officialOnly, setOfficialOnly] = useBooleanQueryParam('official', false)
+	const [source, setSource] = useStringQueryParam<SourceFilter>('source', 'all', SOURCE_FILTERS)
 	const [sort, setSort] = useStringQueryParam<SortOption>('sort', 'recent', SORT_OPTIONS)
 	const useClientFetch = initialFeeds.length === 0
-	const official = officialOnly ? true : undefined
+	// Convert source filter to API parameter: all=undefined, personal=false, official=true
+	const official = source === 'all' ? undefined : source === 'official'
 	const { data, isLoading } = useFeeds({ perPage: 100, official })
 	const { data: user } = useCurrentUser()
 	const { data: bookmarkedData } = useBookmarkedFeeds()
@@ -48,7 +51,11 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 	const apiFeeds = data?.data ?? []
 	const baseFeeds: FeedWithAuthor[] = useClientFetch
 		? apiFeeds
-		: initialFeeds.filter((f) => !officialOnly || f.isOfficial)
+		: initialFeeds.filter((f) => {
+				if (source === 'all') return true
+				if (source === 'official') return f.isOfficial
+				return !f.isOfficial // personal
+			})
 
 	// Filter and sort feeds client-side
 	const feeds = useMemo(() => {
@@ -115,16 +122,19 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 							</TabsTrigger>
 						</TabsList>
 					</Tabs>
-					<Toggle
-						variant="outline"
-						pressed={officialOnly}
-						onPressedChange={setOfficialOnly}
-						size="sm"
-						className="text-xs"
-					>
-						<Building2 className={officialOnly ? 'text-primary' : ''} />
-						企業ブログ
-					</Toggle>
+					<Tabs value={source} onValueChange={(v) => setSource(v as SourceFilter)}>
+						<TabsList className="h-8">
+							<TabsTrigger value="all" className="px-3 text-xs">
+								すべて
+							</TabsTrigger>
+							<TabsTrigger value="personal" className="px-3 text-xs">
+								個人
+							</TabsTrigger>
+							<TabsTrigger value="official" className="px-3 text-xs">
+								企業
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
 				</div>
 			</div>
 
@@ -152,9 +162,11 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 					title={
 						searchQuery
 							? '検索結果がありません'
-							: officialOnly
+							: source === 'official'
 								? '企業ブログがありません'
-								: 'まだフィードが登録されていません'
+								: source === 'personal'
+									? '個人ブログがありません'
+									: 'まだフィードが登録されていません'
 					}
 				/>
 			)}
