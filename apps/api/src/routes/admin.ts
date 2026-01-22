@@ -245,16 +245,21 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 })
 
 // POST /admin/posts/assign-topics - Assign topics to posts
-// Query params: force=true to reassign all posts (not just those without topics)
+// Query params:
+//   force=true - reassign all posts (not just those without topics)
+//   offset=N - skip first N posts (for pagination in force mode)
 adminRoute.post('/posts/assign-topics', async (c) => {
 	const db = c.get('db')
 	const force = c.req.query('force') === 'true'
+	const offset = Number.parseInt(c.req.query('offset') ?? '0', 10) || 0
 
 	// Get posts to update (all posts if force, otherwise only those without topics)
 	const postsToUpdate = await db.query.posts.findMany({
 		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
 		columns: { id: true, title: true, summary: true },
+		orderBy: (p, { asc }) => asc(p.id), // Consistent ordering for pagination
 		limit: 100, // Process in batches to avoid timeout
+		offset: force ? offset : undefined, // Only use offset in force mode
 	})
 
 	if (postsToUpdate.length === 0) {
@@ -286,18 +291,28 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		}
 	}
 
-	// Count remaining posts (all posts if force mode, otherwise only those without topics)
-	const remaining = await db.query.posts.findMany({
-		where: force ? undefined : and(isNull(posts.mainTopic), isNull(posts.subTopic)),
-		columns: { id: true },
-	})
+	// Count remaining posts
+	let remainingCount: number
+	if (force) {
+		// In force mode: count total posts and calculate remaining from offset
+		const totalPosts = await db.query.posts.findMany({ columns: { id: true } })
+		remainingCount = Math.max(0, totalPosts.length - offset - postsToUpdate.length)
+	} else {
+		// Normal mode: count posts still without topics
+		const remaining = await db.query.posts.findMany({
+			where: and(isNull(posts.mainTopic), isNull(posts.subTopic)),
+			columns: { id: true },
+		})
+		remainingCount = remaining.length
+	}
 
 	return c.json({
 		message: `Assigned topics to ${updated} posts`,
 		updated,
 		noTopicMatched,
 		processed: postsToUpdate.length,
-		remaining: remaining.length,
+		remaining: remainingCount,
+		nextOffset: force ? offset + postsToUpdate.length : undefined,
 		force,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
