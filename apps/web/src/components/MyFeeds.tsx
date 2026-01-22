@@ -1,4 +1,13 @@
-import { Bookmark, ExternalLink, Loader2, Plus, Rss, Trash2, Users } from 'lucide-react'
+import {
+	Bookmark,
+	ExternalLink,
+	Loader2,
+	Plus,
+	Rss,
+	Trash2,
+	TriangleAlert,
+	Users,
+} from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -10,6 +19,7 @@ import {
 	useUnbookmarkFeed,
 } from '@/lib/hooks'
 import { QueryProvider } from './QueryProvider'
+import { Alert, AlertDescription, AlertTitle } from './ui/alert'
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -153,6 +163,13 @@ function MyFeedsContent() {
 							<p className="text-xs text-muted-foreground">RSS/Atomフィードに対応</p>
 						</div>
 					</div>
+					<Alert className="mb-3 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+						<TriangleAlert className="size-4" />
+						<AlertTitle>個人ブログ・スライドのみ登録可能</AlertTitle>
+						<AlertDescription className="text-amber-700 dark:text-amber-300">
+							企業テックブログは登録不可。違反フィードは予告なく削除されます。
+						</AlertDescription>
+					</Alert>
 					<form onSubmit={handleRegister} className="flex gap-2">
 						<div className="flex-1">
 							<Label htmlFor="feedUrl" className="sr-only">
