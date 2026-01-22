@@ -79,7 +79,9 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 		'プロンプト',
 		'ファインチューニング',
 		'ベクトル検索',
-		'埋め込み',
+		// Note: removed '埋め込み' - too generic (matches DIY content like "鬼目ナット埋め込み")
+		'埋め込み表現',
+		'ベクトル埋め込み',
 		'自然言語処理',
 		'画像認識',
 		'ニューラルネットワーク',
