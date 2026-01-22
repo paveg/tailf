@@ -17,7 +17,7 @@ export const OFFICIAL_FEEDS = [
 	{ label: 'GREE', url: 'https://labs.gree.jp/blog/feed/' },
 	{ label: 'DMM', url: 'https://developersblog.dmm.com/feed' },
 	{ label: 'クックパッド', url: 'https://techlife.cookpad.com/feed' },
-	{ label: 'ミクシィ', url: 'https://mixi-developers.mixi.co.jp/feed' },
+	{ label: 'MIXI', url: 'https://mixi-developers.mixi.co.jp/feed' },
 	{ label: 'ドワンゴ', url: 'https://dwango.github.io/index.xml' },
 	{ label: 'ピクシブ', url: 'https://inside.pixiv.blog/feed' },
 
@@ -58,7 +58,7 @@ export const OFFICIAL_FEEDS = [
 	{ label: 'CARTA', url: 'https://techblog.cartaholdings.co.jp/feed' },
 
 	// Startup
-	{ label: 'Chatwork', url: 'https://creators-note.chatwork.com/feed' },
+	{ label: 'kubell', url: 'https://creators-note.chatwork.com/feed' },
 	{ label: 'Eureka', url: 'https://medium.com/feed/eureka-engineering' },
 	{ label: 'Speee', url: 'https://tech.speee.jp/feed' },
 	{ label: 'ラクス', url: 'https://tech-blog.rakus.co.jp/feed' },

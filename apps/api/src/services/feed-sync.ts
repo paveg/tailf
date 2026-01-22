@@ -10,46 +10,67 @@ import { generateId } from '../utils/id'
 
 export interface SyncResult {
 	added: string[]
-	existing: string[]
+	updated: string[]
+	unchanged: string[]
 	errors: { url: string; error: string }[]
 }
 
 /**
- * Get feeds that exist in code but not in DB
+ * Get feeds that need to be added or updated
  */
-export async function getDiff(db: Database): Promise<{ toAdd: typeof OFFICIAL_FEEDS }> {
+export async function getDiff(db: Database): Promise<{
+	toAdd: typeof OFFICIAL_FEEDS
+	toUpdate: Array<{ id: string; label: string; url: string }>
+	unchanged: typeof OFFICIAL_FEEDS
+}> {
 	const existingFeeds = await db.query.feeds.findMany({
-		columns: { feedUrl: true },
+		columns: { id: true, feedUrl: true, title: true },
 	})
 
-	const existingUrls = new Set(existingFeeds.map((f) => f.feedUrl))
+	const existingByUrl = new Map(existingFeeds.map((f) => [f.feedUrl, { id: f.id, title: f.title }]))
 
-	const toAdd = OFFICIAL_FEEDS.filter((feed) => !existingUrls.has(feed.url))
+	const toAdd: typeof OFFICIAL_FEEDS = []
+	const toUpdate: Array<{ id: string; label: string; url: string }> = []
+	const unchanged: typeof OFFICIAL_FEEDS = []
 
-	return { toAdd }
+	for (const feed of OFFICIAL_FEEDS) {
+		const existing = existingByUrl.get(feed.url)
+		if (!existing) {
+			toAdd.push(feed)
+		} else if (existing.title !== feed.label) {
+			toUpdate.push({ id: existing.id, label: feed.label, url: feed.url })
+		} else {
+			unchanged.push(feed)
+		}
+	}
+
+	return { toAdd, toUpdate, unchanged }
 }
 
 /**
  * Sync official feeds to database
- * Only adds new feeds, doesn't update or delete existing ones
+ * Adds new feeds and updates labels for existing ones (upsert by URL)
  */
 export async function syncOfficialFeeds(db: Database, dryRun = false): Promise<SyncResult> {
 	const result: SyncResult = {
 		added: [],
-		existing: [],
+		updated: [],
+		unchanged: [],
 		errors: [],
 	}
 
-	const { toAdd } = await getDiff(db)
+	const { toAdd, toUpdate, unchanged } = await getDiff(db)
 
 	if (dryRun) {
 		return {
 			added: toAdd.map((f) => f.label),
-			existing: OFFICIAL_FEEDS.filter((f) => !toAdd.includes(f)).map((f) => f.label),
+			updated: toUpdate.map((f) => f.label),
+			unchanged: unchanged.map((f) => f.label),
 			errors: [],
 		}
 	}
 
+	// Add new feeds
 	for (const feed of toAdd) {
 		try {
 			await db.insert(feeds).values({
@@ -69,7 +90,20 @@ export async function syncOfficialFeeds(db: Database, dryRun = false): Promise<S
 		}
 	}
 
-	result.existing = OFFICIAL_FEEDS.filter((f) => !toAdd.includes(f)).map((f) => f.label)
+	// Update existing feeds with changed labels
+	for (const feed of toUpdate) {
+		try {
+			await db.update(feeds).set({ title: feed.label }).where(eq(feeds.id, feed.id))
+			result.updated.push(feed.label)
+		} catch (error) {
+			result.errors.push({
+				url: feed.url,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			})
+		}
+	}
+
+	result.unchanged = unchanged.map((f) => f.label)
 
 	return result
 }
