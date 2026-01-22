@@ -428,3 +428,53 @@ export async function calculateTechScoreWithEmbedding(
 		return calculateTechScore(title, summary)
 	}
 }
+
+/**
+ * Batch calculate tech scores using BGE-M3 embeddings
+ * Processes multiple posts in a single API call to avoid subrequest limits
+ *
+ * @param ai - Cloudflare Workers AI binding
+ * @param posts - Array of posts with title and optional summary
+ * @returns Array of scores (0.0-1.0), same order as input
+ */
+export async function calculateTechScoresBatch(
+	ai: Ai | undefined,
+	posts: Array<{ title: string; summary?: string }>,
+): Promise<number[]> {
+	// If no posts or no AI, use keyword-based scoring
+	if (posts.length === 0) return []
+	if (!ai) {
+		return posts.map((p) => calculateTechScore(p.title, p.summary))
+	}
+
+	// Prepare texts
+	const texts = posts.map((p) => {
+		const rawText = `${p.title} ${p.summary || ''}`
+		return decodeHtmlEntities(rawText)
+	})
+
+	try {
+		// Get embeddings for all texts in one API call
+		const [inputResult, anchors] = await Promise.all([
+			ai.run('@cf/baai/bge-m3', { text: texts }),
+			getAnchorEmbeddings(ai),
+		])
+
+		// Calculate scores for each embedding
+		return inputResult.data.map((inputEmbedding: number[]) => {
+			const maxTechSim = Math.max(
+				...anchors.tech.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
+			)
+			const maxNonTechSim = Math.max(
+				...anchors.nonTech.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
+			)
+
+			const rawScore = maxTechSim - maxNonTechSim * 0.5
+			return Math.max(0, Math.min(1, (rawScore + 0.3) / 0.8))
+		})
+	} catch (error) {
+		console.error('[TechScore] Batch embedding error, falling back to keyword:', error)
+		// Fallback to keyword-based scoring for all posts
+		return posts.map((p) => calculateTechScore(p.title, p.summary))
+	}
+}

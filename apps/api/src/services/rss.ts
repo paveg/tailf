@@ -1,10 +1,8 @@
-import { eq, gte } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
-import { DURATIONS } from '../utils/date'
 import { generateId } from '../utils/id'
-import { getBookmarkCount } from './hatena'
-import { calculateTechScore, calculateTechScoreWithEmbedding } from './tech-score'
+import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
 
 interface RssItem {
 	title: string
@@ -211,25 +209,14 @@ export function parseFeed(xml: string): RssFeed | null {
 	return parseRss(xml)
 }
 
-/**
- * Calculate tech score with AI embedding if available, fallback to keyword-based
- */
-async function getTechScore(ai: Ai | undefined, title: string, summary?: string): Promise<number> {
-	if (ai) {
-		try {
-			return await calculateTechScoreWithEmbedding(ai, title, summary)
-		} catch (error) {
-			console.warn('[TechScore] Embedding failed, using keyword fallback:', error)
-		}
-	}
-	return calculateTechScore(title, summary)
-}
-
 export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	console.log('Starting RSS feed fetch...')
-	console.log(`[TechScore] Using ${ai ? 'embedding-based' : 'keyword-based'} scoring`)
+	console.log(`[TechScore] Using ${ai ? 'batch embedding' : 'keyword-based'} scoring`)
 
 	const allFeeds = await db.query.feeds.findMany()
+
+	// Collect new posts for batch tech score calculation
+	const newPosts: Array<{ id: string; title: string; summary?: string }> = []
 
 	for (const feed of allFeeds) {
 		try {
@@ -263,7 +250,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 				console.log(`Updated description for: ${feed.title}`)
 			}
 
-			// Insert new posts
+			// Insert new posts with keyword-based score initially
 			for (const item of parsedFeed.items) {
 				const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date()
 
@@ -273,19 +260,25 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 				})
 
 				if (!existing) {
+					const postId = generateId()
 					const summary = item.description?.slice(0, 500)
-					const techScore = await getTechScore(ai, item.title, summary)
+					// Use keyword-based score initially (fast, no API call)
+					const keywordScore = calculateTechScore(item.title, summary)
+
 					await db.insert(posts).values({
-						id: generateId(),
+						id: postId,
 						title: item.title,
 						summary,
 						url: item.link,
 						thumbnailUrl: item.thumbnail,
 						publishedAt,
 						feedId: feed.id,
-						techScore,
+						techScore: keywordScore,
 					})
-					console.log(`Added: ${item.title} (techScore: ${techScore.toFixed(2)})`)
+					console.log(`Added: ${item.title} (keyword techScore: ${keywordScore.toFixed(2)})`)
+
+					// Collect for batch embedding calculation
+					newPosts.push({ id: postId, title: item.title, summary })
 				}
 			}
 		} catch (error) {
@@ -295,45 +288,23 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 	console.log('RSS feed fetch complete.')
 
-	// Update Hatena bookmark counts for recent posts
-	await updateHatenaBookmarkCounts(db)
-}
-
-/**
- * Update Hatena bookmark counts for recent posts (past 7 days)
- * Called after RSS feed fetch to update bookmark counts
- */
-async function updateHatenaBookmarkCounts(db: Database): Promise<void> {
-	console.log('[Hatena] Starting bookmark count update...')
-
-	const oneWeekAgo = new Date(Date.now() - DURATIONS.WEEK_MS)
-
-	const recentPosts = await db.query.posts.findMany({
-		where: gte(posts.publishedAt, oneWeekAgo),
-		columns: { id: true, url: true, hatenaBookmarkCount: true },
-	})
-
-	console.log(`[Hatena] Updating ${recentPosts.length} recent posts`)
-
-	let updated = 0
-	for (const post of recentPosts) {
+	// Batch calculate embedding-based tech scores for new posts
+	if (ai && newPosts.length > 0) {
+		console.log(`[TechScore] Batch calculating embeddings for ${newPosts.length} new posts...`)
 		try {
-			const count = await getBookmarkCount(post.url)
+			const scores = await calculateTechScoresBatch(ai, newPosts)
 
-			// Only update if count changed
-			if (count !== post.hatenaBookmarkCount) {
-				await db.update(posts).set({ hatenaBookmarkCount: count }).where(eq(posts.id, post.id))
-				updated++
+			// Update posts with embedding-based scores
+			for (let i = 0; i < newPosts.length; i++) {
+				const post = newPosts[i]
+				const embeddingScore = scores[i]
+				await db.update(posts).set({ techScore: embeddingScore }).where(eq(posts.id, post.id))
 			}
-
-			// Rate limiting: 100ms delay between requests
-			await new Promise((resolve) => setTimeout(resolve, 100))
+			console.log(`[TechScore] Updated ${newPosts.length} posts with embedding scores`)
 		} catch (error) {
-			console.warn(`[Hatena] Failed to update bookmark count for ${post.url}:`, error)
+			console.warn('[TechScore] Batch embedding failed, keeping keyword scores:', error)
 		}
 	}
-
-	console.log(`[Hatena] Updated ${updated} posts with new bookmark counts`)
 }
 
 // Fetch single feed and return parsed result (for blog registration)
