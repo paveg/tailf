@@ -15,6 +15,44 @@ paths:
 3. **Speed Over Animation**: Prioritize perceived performance; animations must be functional
 4. **Mobile-First**: Design for mobile, enhance for desktop
 
+### SSG/SEO First Strategy
+
+**Default: Server-Side Generation (SSG)**
+- All public pages should have SSG data for SEO
+- Build-time data fetching via `server-api.ts`
+- HTML contains full content for crawlers
+
+**Client-Side Fetching: Only When Necessary**
+
+| Use Client Fetch When | Example |
+|----------------------|---------|
+| User-specific data | Bookmarked posts, user feed |
+| Real-time updates | Ranking that changes frequently |
+| Search results | Cannot pre-build all queries |
+| Authenticated actions | Create/update/delete operations |
+
+```astro
+---
+// SSG: Fetch at build time for SEO
+const allPosts = await fetchAllPostsForSSG()
+const initialPosts = allPosts.slice(0, 6)
+---
+
+<!-- Pass SSG data to React component -->
+<RecentPosts client:load initialPosts={initialPosts} />
+```
+
+```tsx
+// Component: Use SSG data first, API as fallback
+function RecentPostsContent({ initialPosts }) {
+  const useClientFetch = initialPosts.length === 0  // Dev環境のみ
+  const { data } = useInfinitePosts(6)
+
+  const posts = useClientFetch ? apiPosts : initialPosts
+  // ...
+}
+```
+
 ### Core Web Vitals Priority
 
 | Metric | Target | Strategy |
@@ -41,13 +79,16 @@ paths:
 
 ### Hydration Strategy
 
-| Directive | Use When |
-|-----------|----------|
-| `client:load` | Interactive main content with SSG data |
-| `client:idle` | Header/footer components, notifications |
-| `client:visible` | Below-fold content WITH SSG data |
+| Directive | Use When | SSG Data Required |
+|-----------|----------|-------------------|
+| `client:load` | Interactive main content | Yes (for SEO) |
+| `client:idle` | Header/footer, notifications | No (non-SEO content) |
+| `client:visible` | Below-fold content | **Yes** (must have SSG) |
 
-**Warning**: Never use `client:visible` for components without SSG data - SEO impact.
+**Critical Rules**:
+- `client:visible` without SSG data = SEO invisible (Google won't see it)
+- Components with API-only data (no SSG) must use `client:load`
+- Heading tags (`<h2>`) should be in Astro template, not React component
 
 ### QueryClient Singleton
 
