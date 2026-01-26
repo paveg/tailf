@@ -18,7 +18,14 @@ import type { ApiResponse, CursorResponse } from './api'
 
 /**
  * Get the API base URL for server-side requests
- * Requires PUBLIC_API_URL env var to be set, falls back to localhost for dev
+ *
+ * Production: https://tailf.pavegy.workers.dev/api
+ * Local dev:  http://localhost:8788/api
+ *
+ * Set via PUBLIC_API_URL env var:
+ * - Cloudflare Workers Builds: Configure in dashboard
+ * - GHA scheduled builds: Set in secrets
+ * - Local: Run API with `pnpm dev:api` (uses fallback)
  */
 function getApiBaseUrl(): string {
 	const apiUrl = import.meta.env.PUBLIC_API_URL
@@ -26,8 +33,8 @@ function getApiBaseUrl(): string {
 		return apiUrl
 	}
 
-	// Fallback for local development only
-	return 'http://localhost:8788'
+	// Fallback for local development
+	return 'http://localhost:8788/api'
 }
 
 /**
