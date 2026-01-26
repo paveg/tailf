@@ -120,6 +120,36 @@ describe('calculateTechScore', () => {
 			expect(techScore).toBeGreaterThan(gadgetScore)
 		})
 	})
+
+	describe('search and feed related content', () => {
+		it('scores high for RSS/feed related articles', () => {
+			expect(calculateTechScore('RSSフィードをパースする')).toBeGreaterThanOrEqual(0.3)
+			expect(calculateTechScore('Atomフィードの仕様を理解する')).toBeGreaterThanOrEqual(0.3)
+			expect(calculateTechScore('クローラーを実装してブログを収集')).toBeGreaterThanOrEqual(0.3)
+		})
+
+		it('scores high for FTS/search related articles', () => {
+			expect(calculateTechScore('全文検索エンジンを作る')).toBeGreaterThanOrEqual(0.3)
+			expect(calculateTechScore('FTSでブログ記事を検索できるようにした')).toBeGreaterThanOrEqual(
+				0.3,
+			)
+			expect(calculateTechScore('Meilisearchで検索機能を実装')).toBeGreaterThanOrEqual(0.3)
+		})
+
+		it('scores high for blog system building articles', () => {
+			// This is a real-world example that was scoring too low before
+			expect(
+				calculateTechScore(
+					'好きに書いて、技術記事だけ届く仕組みを作った',
+					'全文検索とフィードアグリゲーターを組み合わせて技術記事だけをフィルタリングするシステム',
+				),
+			).toBeGreaterThanOrEqual(0.3)
+			expect(calculateTechScore('静的サイトジェネレーターでブログを構築')).toBeGreaterThanOrEqual(
+				0.3,
+			)
+			expect(calculateTechScore('Jamstackでブログをリニューアル')).toBeGreaterThanOrEqual(0.3)
+		})
+	})
 })
 
 describe('isTechPost', () => {

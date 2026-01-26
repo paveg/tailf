@@ -25,6 +25,8 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'clojure',
 	'zig',
 	'ocaml',
+	'deno',
+	'bun',
 	// Frameworks & Libraries
 	'react',
 	'vue',
@@ -44,6 +46,10 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'flutter',
 	'swiftui',
 	'jetpack compose',
+	'remix',
+	'solid.js',
+	'qwik',
+	'htmx',
 	// Infrastructure
 	'kubernetes',
 	'k8s',
@@ -60,7 +66,9 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'fargate',
 	'lambda',
 	'karpenter',
-	// Databases
+	'pulumi',
+	'ansible',
+	// Databases & Search
 	'postgresql',
 	'mysql',
 	'mongodb',
@@ -73,6 +81,11 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'alloydb',
 	'spanner',
 	'opensearch',
+	'meilisearch',
+	'algolia',
+	'typesense',
+	'fts',
+	'全文検索',
 	// DevOps & Tools
 	'github actions',
 	'ci/cd',
@@ -83,6 +96,11 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'webpack',
 	'vite',
 	'esbuild',
+	'turborepo',
+	'nx',
+	'biome',
+	'trpc',
+	'zod',
 	// AI/ML Tools
 	'openai',
 	'claude',
@@ -94,6 +112,31 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'mcp',
 	'langchain',
 	'llamaindex',
+	'huggingface',
+	'ollama',
+	'stable diffusion',
+	// RSS & Web Crawling
+	'rss',
+	'atom',
+	'feed',
+	'クローラー',
+	'crawler',
+	'scraping',
+	'スクレイピング',
+	// Static Site & Jamstack
+	'ssg',
+	'jamstack',
+	'hugo',
+	'gatsby',
+	'eleventy',
+	'11ty',
+	'静的サイトジェネレーター',
+	'静的サイト生成',
+	// WebAssembly & Edge
+	'webassembly',
+	'wasm',
+	'edge computing',
+	'edge functions',
 	// 3D/Game/VR
 	'unity',
 	'unreal',
@@ -109,6 +152,12 @@ const HIGH_WEIGHT_KEYWORDS = [
 	'prometheus',
 	'grafana',
 	'datadog',
+	// Security
+	'oauth',
+	'jwt',
+	'oidc',
+	'websocket',
+	'webrtc',
 ]
 
 // Medium confidence tech keywords (weight: 0.15 each)
@@ -146,6 +195,24 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'脆弱性',
 	'認証',
 	'認可',
+	// Search & Data (Japanese)
+	'検索エンジン',
+	'インデックス',
+	'クエリ',
+	'フィード',
+	'アグリゲーター',
+	'パーサー',
+	'正規表現',
+	'構文解析',
+	// Web Development (Japanese)
+	'静的サイト',
+	'動的サイト',
+	'レンダリング',
+	'ハイドレーション',
+	'ルーティング',
+	'ミドルウェア',
+	'キャッシュ',
+	'cdn',
 	// SRE/Platform (Japanese)
 	'インシデント',
 	'オンコール',
@@ -162,6 +229,12 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'ベクトル検索',
 	'埋め込み',
 	'rag',
+	'エンベディング',
+	// Git & Version Control (Japanese)
+	'ブランチ',
+	'マージ',
+	'コンフリクト',
+	'リベース',
 	// General tech terms (English)
 	'programming',
 	'engineering',
@@ -189,6 +262,16 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'security',
 	'authentication',
 	'authorization',
+	// Search & Web (English)
+	'search engine',
+	'indexing',
+	'parsing',
+	'regex',
+	'ast',
+	'hydration',
+	'ssr',
+	'csr',
+	'isr',
 	// SRE/Platform (English)
 	'incident',
 	'on-call',
@@ -200,6 +283,12 @@ const MEDIUM_WEIGHT_KEYWORDS = [
 	'slo',
 	'sli',
 	'error budget',
+	// Version Control (English)
+	'git',
+	'branch',
+	'merge',
+	'rebase',
+	'monorepo',
 ]
 
 // Low confidence keywords (weight: 0.05 each)
@@ -244,6 +333,34 @@ const LOW_WEIGHT_KEYWORDS = [
 	'production',
 	'ステージング',
 	'staging',
+	// Additional tech context
+	'仕組み',
+	'システム',
+	'system',
+	'サーバー',
+	'server',
+	'クライアント',
+	'client',
+	'リクエスト',
+	'request',
+	'レスポンス',
+	'response',
+	'ライブラリ',
+	'library',
+	'フレームワーク',
+	'framework',
+	'パッケージ',
+	'package',
+	'モジュール',
+	'module',
+	'関数',
+	'function',
+	'変数',
+	'variable',
+	'型',
+	'type',
+	'スキーマ',
+	'schema',
 ]
 
 /**
@@ -300,8 +417,12 @@ export function isTechPost(title: string, summary?: string, threshold = 0.3): bo
 }
 
 // ============================================================
-// Embedding-based tech score (BGE-M3 via Cloudflare Workers AI)
+// Hybrid tech score (Keyword + Embedding via Cloudflare Workers AI)
 // ============================================================
+
+// Weights for hybrid scoring (must sum to 1.0)
+const KEYWORD_WEIGHT = 0.4
+const EMBEDDING_WEIGHT = 0.6
 
 /**
  * Representative tech article phrases for comparison
@@ -323,6 +444,20 @@ const TECH_ANCHOR_PHRASES = [
 	// AI & ML
 	'LLM プロンプトエンジニアリング RAG ベクトル検索',
 	'ディープラーニング ニューラルネットワーク PyTorch',
+	// Search & Data Processing
+	'全文検索 FTS インデックス 検索エンジン クエリ最適化',
+	'RSS Atom フィード クローラー アグリゲーター パーサー',
+	'正規表現 構文解析 パーサー AST コンパイラ',
+	// Web & Static Sites
+	'ブログシステム 静的サイト生成 SSG Markdown Jamstack',
+	'Webアプリ開発 SPA SSR ハイドレーション レンダリング',
+	'WebAssembly WASM エッジコンピューティング CDN キャッシュ',
+	// Developer Tools & Workflow
+	'開発環境構築 エディタ設定 Vim Neovim 開発効率化',
+	'Git バージョン管理 ブランチ戦略 モノレポ CI',
+	'リファクタリング コード品質 静的解析 リンター フォーマッター',
+	// Security & Auth
+	'認証認可 OAuth JWT セッション管理 セキュリティ対策',
 ]
 
 /**
@@ -382,8 +517,28 @@ async function getAnchorEmbeddings(ai: Ai): Promise<{ tech: number[][]; nonTech:
 }
 
 /**
- * Calculate tech score using BGE-M3 embeddings
- * Compares input text against tech and non-tech anchor phrases
+ * Calculate embedding-only score from a single embedding
+ */
+function calculateEmbeddingScore(
+	inputEmbedding: number[],
+	techAnchors: number[][],
+	nonTechAnchors: number[][],
+): number {
+	const maxTechSim = Math.max(
+		...techAnchors.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
+	)
+	const maxNonTechSim = Math.max(
+		...nonTechAnchors.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
+	)
+
+	// Score = tech similarity - non-tech penalty, normalized to 0-1
+	const rawScore = maxTechSim - maxNonTechSim * 0.5
+	return Math.max(0, Math.min(1, (rawScore + 0.3) / 0.8))
+}
+
+/**
+ * Calculate hybrid tech score using both keywords and BGE-M3 embeddings
+ * Combines keyword-based scoring (40%) with embedding-based scoring (60%)
  * Falls back to keyword-based scoring if AI is unavailable
  *
  * @returns Score between 0.0 and 1.0
@@ -393,9 +548,11 @@ export async function calculateTechScoreWithEmbedding(
 	title: string,
 	summary?: string,
 ): Promise<number> {
+	const keywordScore = calculateTechScore(title, summary)
+
 	// Fallback to keyword-based if AI is not available
 	if (!ai) {
-		return calculateTechScore(title, summary)
+		return keywordScore
 	}
 
 	const rawText = `${title} ${summary || ''}`
@@ -408,30 +565,27 @@ export async function calculateTechScoreWithEmbedding(
 			getAnchorEmbeddings(ai),
 		])
 
-		const inputEmbedding = inputResult.data[0]
+		const embeddingScore = calculateEmbeddingScore(
+			inputResult.data[0],
+			anchors.tech,
+			anchors.nonTech,
+		)
 
-		// Calculate max similarity to anchor phrases
-		const maxSimilarity = (anchorList: number[][]) =>
-			Math.max(...anchorList.map((anchor) => cosineSimilarity(inputEmbedding, anchor)))
+		// Hybrid score: combine keyword and embedding scores
+		const hybridScore = keywordScore * KEYWORD_WEIGHT + embeddingScore * EMBEDDING_WEIGHT
 
-		const maxTechSim = maxSimilarity(anchors.tech)
-		const maxNonTechSim = maxSimilarity(anchors.nonTech)
-
-		// Score = tech similarity - non-tech penalty, normalized to 0-1
-		const rawScore = maxTechSim - maxNonTechSim * 0.5
-		const normalizedScore = Math.max(0, Math.min(1, (rawScore + 0.3) / 0.8))
-
-		return normalizedScore
+		return Math.min(hybridScore, 1.0)
 	} catch (error) {
 		console.error('[TechScore] Embedding error, falling back to keyword:', error)
 		// Fallback to keyword-based scoring
-		return calculateTechScore(title, summary)
+		return keywordScore
 	}
 }
 
 /**
- * Batch calculate tech scores using BGE-M3 embeddings
+ * Batch calculate hybrid tech scores using keywords and BGE-M3 embeddings
  * Processes multiple posts in a single API call to avoid subrequest limits
+ * Combines keyword-based scoring (40%) with embedding-based scoring (60%)
  *
  * @param ai - Cloudflare Workers AI binding
  * @param posts - Array of posts with title and optional summary
@@ -441,13 +595,18 @@ export async function calculateTechScoresBatch(
 	ai: Ai | undefined,
 	posts: Array<{ title: string; summary?: string }>,
 ): Promise<number[]> {
-	// If no posts or no AI, use keyword-based scoring
+	// If no posts, return empty
 	if (posts.length === 0) return []
+
+	// Calculate keyword scores for all posts
+	const keywordScores = posts.map((p) => calculateTechScore(p.title, p.summary))
+
+	// If no AI, return keyword-only scores
 	if (!ai) {
-		return posts.map((p) => calculateTechScore(p.title, p.summary))
+		return keywordScores
 	}
 
-	// Prepare texts
+	// Prepare texts for embedding
 	const texts = posts.map((p) => {
 		const rawText = `${p.title} ${p.summary || ''}`
 		return decodeHtmlEntities(rawText)
@@ -460,21 +619,18 @@ export async function calculateTechScoresBatch(
 			getAnchorEmbeddings(ai),
 		])
 
-		// Calculate scores for each embedding
-		return inputResult.data.map((inputEmbedding: number[]) => {
-			const maxTechSim = Math.max(
-				...anchors.tech.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
-			)
-			const maxNonTechSim = Math.max(
-				...anchors.nonTech.map((anchor) => cosineSimilarity(inputEmbedding, anchor)),
-			)
+		// Calculate hybrid scores for each post
+		return inputResult.data.map((inputEmbedding: number[], index: number) => {
+			const embeddingScore = calculateEmbeddingScore(inputEmbedding, anchors.tech, anchors.nonTech)
+			const keywordScore = keywordScores[index]
 
-			const rawScore = maxTechSim - maxNonTechSim * 0.5
-			return Math.max(0, Math.min(1, (rawScore + 0.3) / 0.8))
+			// Hybrid score: combine keyword and embedding scores
+			const hybridScore = keywordScore * KEYWORD_WEIGHT + embeddingScore * EMBEDDING_WEIGHT
+			return Math.min(hybridScore, 1.0)
 		})
 	} catch (error) {
 		console.error('[TechScore] Batch embedding error, falling back to keyword:', error)
 		// Fallback to keyword-based scoring for all posts
-		return posts.map((p) => calculateTechScore(p.title, p.summary))
+		return keywordScores
 	}
 }

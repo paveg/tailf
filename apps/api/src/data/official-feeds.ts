@@ -70,6 +70,9 @@ export const OFFICIAL_FEEDS = [
 	// Agency / Dev Shop
 	{ label: 'LIG', url: 'https://liginc.co.jp/technology/feed' },
 	{ label: 'TechRacho', url: 'https://techracho.bpsinc.jp/feed' },
+
+	// Tech Blog Platforms
+	{ label: 'Zenn', url: 'https://zenn.dev/feed' },
 ] as const
 
 export type OfficialFeed = (typeof OFFICIAL_FEEDS)[number]
