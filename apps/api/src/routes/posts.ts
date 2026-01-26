@@ -49,6 +49,34 @@ const postsQuerySchema = v.object({
 	topic: v.optional(v.string()),
 })
 
+// D1 has a limit of 100 bound parameters per query
+// Use chunked queries when array might exceed this limit
+const D1_MAX_VARIABLES = 100
+
+/**
+ * Build SQL condition for filtering by feed IDs with D1 variable limit handling
+ * Uses raw SQL subquery for large sets to avoid variable limit
+ */
+function buildFeedIdCondition(feedIds: string[], include: boolean): SQL | undefined {
+	if (feedIds.length === 0) return undefined
+
+	// For small arrays, use inArray/notInArray directly
+	if (feedIds.length <= D1_MAX_VARIABLES) {
+		return include ? inArray(posts.feedId, feedIds) : notInArray(posts.feedId, feedIds)
+	}
+
+	// For large arrays, chunk the IDs and combine with OR/AND
+	const chunks: SQL[] = []
+	for (let i = 0; i < feedIds.length; i += D1_MAX_VARIABLES) {
+		const chunk = feedIds.slice(i, i + D1_MAX_VARIABLES)
+		chunks.push(include ? inArray(posts.feedId, chunk) : notInArray(posts.feedId, chunk))
+	}
+
+	// For include: OR the chunks (any match)
+	// For exclude: AND the chunks (all must not match)
+	return include ? or(...chunks) : and(...chunks)
+}
+
 /**
  * Get feed IDs filtered by official status
  */
@@ -103,7 +131,7 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 	if (official !== undefined) {
 		const feedIds = await getOfficialFeedIds(db, official)
 		if (feedIds.length > 0) {
-			officialCondition = inArray(posts.feedId, feedIds)
+			officialCondition = buildFeedIdCondition(feedIds, true)
 		} else {
 			// No matching feeds, return empty
 			return c.json(buildCursorResponse([], limit))
@@ -115,7 +143,7 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 	if (excludeAuthorId) {
 		const excludeFeedIds = await getFeedIdsByAuthor(db, excludeAuthorId)
 		if (excludeFeedIds.length > 0) {
-			excludeCondition = notInArray(posts.feedId, excludeFeedIds)
+			excludeCondition = buildFeedIdCondition(excludeFeedIds, false)
 		}
 	}
 
@@ -173,13 +201,29 @@ function buildSearchResponse<T extends { publishedAt: Date }>(
 }
 
 /**
- * Build SQL IN clause from array of values
+ * Build SQL condition for official feed IDs in raw SQL context
+ * Uses chunked OR for large arrays
  */
-function buildSqlInClause(values: string[]): ReturnType<typeof sql> {
-	return sql.join(
-		values.map((v) => sql`${v}`),
-		sql`, `,
-	)
+function buildOfficialSqlCondition(feedIds: string[]): ReturnType<typeof sql> {
+	if (feedIds.length <= D1_MAX_VARIABLES) {
+		return sql`AND p.feed_id IN (${sql.join(
+			feedIds.map((v) => sql`${v}`),
+			sql`, `,
+		)})`
+	}
+
+	// For large arrays, chunk and combine with OR
+	const chunks: ReturnType<typeof sql>[] = []
+	for (let i = 0; i < feedIds.length; i += D1_MAX_VARIABLES) {
+		const chunk = feedIds.slice(i, i + D1_MAX_VARIABLES)
+		chunks.push(
+			sql`p.feed_id IN (${sql.join(
+				chunk.map((v) => sql`${v}`),
+				sql`, `,
+			)})`,
+		)
+	}
+	return sql`AND (${sql.join(chunks, sql` OR `)})`
 }
 
 // Search posts - cursor-based pagination using FTS5 (with LIKE fallback for short queries)
@@ -213,9 +257,7 @@ postsRoute.get(
 				? sql`AND p.published_at < ${new Date(cursor).getTime()}`
 				: sql``
 			const techCondition = techOnly ? sql`AND p.tech_score >= ${TECH_SCORE_THRESHOLD}` : sql``
-			const officialCondition = officialFeedIds
-				? sql`AND p.feed_id IN (${buildSqlInClause(officialFeedIds)})`
-				: sql``
+			const officialCondition = officialFeedIds ? buildOfficialSqlCondition(officialFeedIds) : sql``
 			const topicCondition = topic
 				? sql`AND (p.main_topic = ${topic} OR p.sub_topic = ${topic})`
 				: sql``
@@ -258,7 +300,7 @@ postsRoute.get(
 			or(like(posts.title, searchTerm), like(posts.summary, searchTerm)),
 			cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined,
 			techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined,
-			officialFeedIds ? inArray(posts.feedId, officialFeedIds) : undefined,
+			officialFeedIds ? buildFeedIdCondition(officialFeedIds, true) : undefined,
 			topicCondition,
 		].filter(Boolean)
 

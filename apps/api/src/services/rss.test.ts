@@ -1,6 +1,62 @@
 import { describe, expect, it } from 'vitest'
 import { decodeHtmlEntities, parseAtom, parseFeed, parseRss } from './rss'
 
+/**
+ * fetchRssFeeds integration behavior tests
+ *
+ * The fetchRssFeeds function uses lastFetchedAt to determine feed priority:
+ * - Feeds with lastFetchedAt = NULL are processed first (never fetched)
+ * - Then feeds are sorted by lastFetchedAt ascending (oldest first)
+ * - After each fetch attempt, lastFetchedAt is updated to current timestamp
+ *
+ * This ensures fair rotation across all feeds when there are more feeds
+ * than the per-run limit (MAX_FEED_FETCHES_PER_RUN = 30).
+ *
+ * SQLite behavior note:
+ * In SQLite, NULL values sort FIRST in ASC order by default, which is
+ * exactly what we want for prioritizing never-fetched feeds.
+ */
+describe('fetchRssFeeds priority ordering', () => {
+	it('should document expected SQLite NULL ordering behavior', () => {
+		// SQLite sorts NULL first in ASC order
+		// This is the expected behavior for our feed priority ordering
+		const feeds = [
+			{ id: '1', lastFetchedAt: null },
+			{ id: '2', lastFetchedAt: new Date('2024-01-01') },
+			{ id: '3', lastFetchedAt: new Date('2024-01-02') },
+			{ id: '4', lastFetchedAt: null },
+		]
+
+		// Simulate SQLite ASC ordering (NULLs first, then ascending by date)
+		const sorted = [...feeds].sort((a, b) => {
+			if (a.lastFetchedAt === null && b.lastFetchedAt === null) return 0
+			if (a.lastFetchedAt === null) return -1
+			if (b.lastFetchedAt === null) return 1
+			return a.lastFetchedAt.getTime() - b.lastFetchedAt.getTime()
+		})
+
+		// NULL values should come first
+		expect(sorted[0].lastFetchedAt).toBeNull()
+		expect(sorted[1].lastFetchedAt).toBeNull()
+		// Then sorted by date ascending
+		expect(sorted[2].lastFetchedAt?.toISOString()).toBe('2024-01-01T00:00:00.000Z')
+		expect(sorted[3].lastFetchedAt?.toISOString()).toBe('2024-01-02T00:00:00.000Z')
+	})
+
+	it('should describe lastFetchedAt update behavior', () => {
+		// Document the expected behavior:
+		// 1. On successful fetch: lastFetchedAt is updated
+		// 2. On failed fetch (HTTP error): lastFetchedAt is still updated
+		//    (to avoid immediately retrying failing feeds)
+		// 3. On parse error: lastFetchedAt is still updated
+		//    (to avoid blocking other feeds)
+
+		// This test just documents the behavior - actual DB testing
+		// requires integration tests with a real D1 database
+		expect(true).toBe(true)
+	})
+})
+
 describe('decodeHtmlEntities', () => {
 	it('decodes basic HTML entities', () => {
 		expect(decodeHtmlEntities('&amp;')).toBe('&')

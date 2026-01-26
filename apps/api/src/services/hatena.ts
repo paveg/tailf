@@ -66,11 +66,13 @@ export async function updateRecentBookmarkCounts(db: Database): Promise<{ update
 	const weekAgo = new Date(now.getTime() - DURATIONS.WEEK_MS)
 
 	// Get posts that need bookmark count update
-	// Limit to 30 per run to avoid timeout (Workers has 30s limit)
+	// Limit to 15 per run to stay within Cloudflare Workers subrequest limit (50 total)
+	// RSS fetch uses ~30, OGP uses ~3, leaving ~17 for Hatena
+	const HATENA_FETCH_LIMIT = 15
 	const postsToUpdate = await db.query.posts.findMany({
 		where: or(isNull(posts.hatenaBookmarkCount), gte(posts.publishedAt, weekAgo)),
 		columns: { id: true, url: true },
-		limit: 30,
+		limit: HATENA_FETCH_LIMIT,
 	})
 
 	if (postsToUpdate.length === 0) {

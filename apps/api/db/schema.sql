@@ -1,5 +1,5 @@
 -- Auto-generated schema dump
--- Generated at: 2026-01-22 12:19:45 UTC
+-- Generated at: 2026-01-26 02:06:46 UTC
 -- DO NOT EDIT - This file is auto-generated from migrations
 
 -- ==========================================
@@ -237,4 +237,18 @@ UPDATE feeds SET bookmark_count = (
 
 -- Create index for sorting by bookmark_count
 CREATE INDEX feeds_bookmark_count_idx ON feeds(bookmark_count);
+
+-- ==========================================
+-- 0008_add_topic_columns.sql
+-- ==========================================
+-- Add topic columns for automatic topic assignment
+-- main_topic: Primary topic (highest keyword score)
+-- sub_topic: Secondary topic (second highest score, optional)
+
+ALTER TABLE posts ADD COLUMN main_topic TEXT;
+ALTER TABLE posts ADD COLUMN sub_topic TEXT;
+
+-- Create indexes for efficient topic filtering
+CREATE INDEX posts_main_topic_idx ON posts(main_topic);
+CREATE INDEX posts_sub_topic_idx ON posts(sub_topic);
 
