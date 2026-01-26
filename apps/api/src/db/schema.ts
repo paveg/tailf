@@ -38,6 +38,8 @@ export const feeds = sqliteTable(
 		isOfficial: integer('is_official', { mode: 'boolean' }).notNull().default(false),
 		// ブックマーク数（ブックマーク追加/削除時に更新）
 		bookmarkCount: integer('bookmark_count').notNull().default(0),
+		// 最終RSSフェッチ日時（フェッチ優先順位の決定に使用）
+		lastFetchedAt: integer('last_fetched_at', { mode: 'timestamp' }),
 		authorId: text('author_id').references(() => users.id),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
@@ -49,6 +51,7 @@ export const feeds = sqliteTable(
 	(table) => [
 		index('feeds_author_id_idx').on(table.authorId),
 		index('feeds_type_idx').on(table.type),
+		index('feeds_last_fetched_at_idx').on(table.lastFetchedAt),
 	],
 )
 

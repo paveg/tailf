@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { generateId } from '../utils/id'
@@ -274,7 +274,11 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	console.log('Starting RSS feed fetch...')
 	console.log(`[TechScore] Using ${ai ? 'batch embedding' : 'keyword-based'} scoring`)
 
-	const allFeeds = await db.query.feeds.findMany()
+	// Order by lastFetchedAt: nulls first (never fetched), then oldest first
+	// This ensures fair rotation across all feeds
+	const allFeeds = await db.query.feeds.findMany({
+		orderBy: [asc(feeds.lastFetchedAt)],
+	})
 	console.log(
 		`[RSS] Total feeds: ${allFeeds.length}, processing up to ${MAX_FEED_FETCHES_PER_RUN} per run`,
 	)
@@ -327,6 +331,8 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 			if (!response.ok) {
 				console.error(`Failed to fetch ${feed.feedUrl}: ${response.status}`)
+				// Still update lastFetchedAt to avoid retrying failed feeds immediately
+				await db.update(feeds).set({ lastFetchedAt: new Date() }).where(eq(feeds.id, feed.id))
 				continue
 			}
 
@@ -335,8 +341,13 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 			if (!parsedFeed) {
 				console.error(`Failed to parse feed: ${feed.feedUrl}`)
+				// Still update lastFetchedAt to avoid retrying failed feeds immediately
+				await db.update(feeds).set({ lastFetchedAt: new Date() }).where(eq(feeds.id, feed.id))
 				continue
 			}
+
+			// Update lastFetchedAt to track when this feed was last processed
+			await db.update(feeds).set({ lastFetchedAt: new Date() }).where(eq(feeds.id, feed.id))
 
 			// Collect feed description update
 			if (!feed.description && parsedFeed.description) {
