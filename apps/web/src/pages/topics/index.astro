@@ -1,0 +1,60 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { TOPICS, type TopicId } from '@tailf/shared'
+import { fetchAllPostsForSSG } from '../../lib/server-api'
+
+// Fetch all posts to count per topic
+const allPosts = await fetchAllPostsForSSG()
+
+// Count posts per topic
+const topicCounts = TOPICS.map((topic) => ({
+	...topic,
+	count: allPosts.filter((post) => post.topics.includes(topic.id)).length,
+}))
+
+// Structured data
+const structuredData = {
+	'@context': 'https://schema.org',
+	'@type': 'CollectionPage',
+	name: 'トピック一覧',
+	description: '日本の技術ブログの記事をトピック別に分類。AI、フロントエンド、バックエンドなど技術カテゴリから記事を探せます',
+	url: new URL('/topics', Astro.site).toString(),
+	isPartOf: {
+		'@type': 'WebSite',
+		name: 'tail -f',
+		url: Astro.site?.toString(),
+	},
+}
+---
+
+<Layout
+	title="トピック一覧"
+	description="日本の技術ブログの記事をトピック別に分類。AI、フロントエンド、バックエンドなど技術カテゴリから記事を探せます"
+>
+	<Fragment slot="head">
+		<script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+	</Fragment>
+
+	<div class="container mx-auto px-4 py-8">
+		<h1 class="mb-8 text-3xl font-bold">トピック一覧</h1>
+		<p class="mb-8 text-muted-foreground">
+			技術記事をトピック別に分類しています。興味のあるトピックを選んでください。
+		</p>
+
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			{topicCounts.map((topic) => (
+				<a
+					href={`/topics/${topic.id}`}
+					class="group rounded-lg border bg-card p-6 transition-colors hover:bg-accent"
+				>
+					<h2 class="text-xl font-semibold group-hover:text-accent-foreground">
+						#{topic.name}
+					</h2>
+					<p class="mt-2 text-sm text-muted-foreground">
+						{topic.count}件の記事
+					</p>
+				</a>
+			))}
+		</div>
+	</div>
+</Layout>
