@@ -9,6 +9,7 @@ import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
 import { decodeHtmlEntities, fetchOgImage, parseFeed } from '../services/rss'
+import { calculateTechScoresBatch } from '../services/tech-score'
 import { assignTopics } from '../services/topic-assignment'
 
 type Variables = {
@@ -326,6 +327,81 @@ adminRoute.post('/posts/assign-topics', async (c) => {
 		total: totalPosts.length,
 		nextOffset: force && maxLimit !== null ? startOffset + totalProcessed : undefined,
 		force,
+		examples: examples.length > 0 ? examples : undefined,
+		errors: errors.length > 0 ? errors : undefined,
+	})
+})
+
+// POST /admin/posts/rescore - Recalculate tech scores using hybrid scoring
+// Query params:
+//   limit=N - max posts per request (default: 20, max: 40 due to subrequest limits)
+//   offset=N - start position (for pagination)
+// Note: Each post update is 1 subrequest. With 50 subrequest limit:
+//   - 1 (fetch) + 3 (AI) + N (updates) + 1 (total) < 50
+//   - So max N = 45, but we use 40 as safe limit
+adminRoute.post('/posts/rescore', async (c) => {
+	const db = c.get('db')
+	const ai = c.env.AI
+	const MAX_LIMIT = 40 // Safe limit for 50 subrequest cap
+	const requestedLimit = Number.parseInt(c.req.query('limit') ?? '20', 10)
+	const limit = Math.min(requestedLimit, MAX_LIMIT)
+	const offset = Number.parseInt(c.req.query('offset') ?? '0', 10)
+
+	// Get posts to rescore
+	const postsToRescore = await db.query.posts.findMany({
+		columns: { id: true, title: true, summary: true, techScore: true },
+		orderBy: (p, { asc }) => asc(p.id),
+		limit,
+		offset,
+	})
+
+	if (postsToRescore.length === 0) {
+		return c.json({ message: 'No posts to rescore', updated: 0 })
+	}
+
+	// Calculate new scores using hybrid scoring
+	const newScores = await calculateTechScoresBatch(
+		ai,
+		postsToRescore.map((p) => ({ title: p.title, summary: p.summary ?? undefined })),
+	)
+
+	// Update posts with new scores
+	let updated = 0
+	const examples: Array<{ title: string; oldScore: number; newScore: number }> = []
+	const errors: string[] = []
+
+	for (let i = 0; i < postsToRescore.length; i++) {
+		const post = postsToRescore[i]
+		const newScore = newScores[i]
+
+		try {
+			await db.update(posts).set({ techScore: newScore }).where(eq(posts.id, post.id))
+			updated++
+
+			// Collect examples where score changed significantly
+			if (examples.length < 10 && Math.abs(post.techScore - newScore) >= 0.1) {
+				examples.push({
+					title: post.title,
+					oldScore: post.techScore,
+					newScore,
+				})
+			}
+		} catch (error) {
+			errors.push(`${post.id}: ${error}`)
+		}
+	}
+
+	// Get total count for progress
+	const totalPosts = await db.query.posts.findMany({ columns: { id: true } })
+
+	return c.json({
+		message: `Rescored ${updated} posts`,
+		updated,
+		processed: postsToRescore.length,
+		total: totalPosts.length,
+		nextOffset: offset + postsToRescore.length,
+		hasMore: offset + postsToRescore.length < totalPosts.length,
+		limitApplied: limit,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
 	})
