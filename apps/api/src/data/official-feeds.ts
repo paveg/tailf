@@ -27,6 +27,10 @@ export const OFFICIAL_FEEDS = [
 	{ label: 'マネーフォワード', url: 'https://moneyforward-dev.jp/feed' },
 	{ label: 'LayerX', url: 'https://tech.layerx.co.jp/feed' },
 	{ label: 'Sansan', url: 'https://buildersbox.corp-sansan.com/feed' },
+	{ label: 'サイボウズ', url: 'https://blog.cybozu.io/feed' },
+	{ label: 'SmartBank', url: 'https://blog.smartbank.co.jp/feed' },
+	{ label: 'READYFOR', url: 'https://tech.readyfor.jp/feed' },
+	{ label: 'Repro', url: 'https://tech.repro.io/feed' },
 
 	// Web Services
 	{ label: 'はてな', url: 'https://developer.hatenastaff.com/feed' },
@@ -42,6 +46,8 @@ export const OFFICIAL_FEEDS = [
 	// HR / Recruiting
 	{ label: 'Visional', url: 'https://engineering.visional.inc/blog/index.xml' },
 	{ label: 'ラクスル', url: 'https://techblog.raksul.com/feed' },
+	{ label: 'タイミー', url: 'https://tech.timee.co.jp/feed' },
+	{ label: 'Findy', url: 'https://tech.findy.co.jp/feed' },
 
 	// Education
 	{ label: 'スタディサプリ', url: 'https://blog.studysapuri.jp/feed' },
@@ -49,13 +55,19 @@ export const OFFICIAL_FEEDS = [
 
 	// Healthcare
 	{ label: 'エムスリー', url: 'https://www.m3tech.blog/feed' },
+	{ label: 'カケハシ', url: 'https://kakehashi-dev.hatenablog.com/feed' },
 
 	// Enterprise / SI
 	{ label: 'GMOインターネット', url: 'https://developers.gmo.jp/feed/' },
+	{ label: 'GMOペパボ', url: 'https://tech.pepabo.com/feed.xml' },
 	{ label: 'NTT ドコモ', url: 'https://nttdocomo-developers.jp/feed' },
 	{ label: 'IIJ', url: 'https://eng-blog.iij.ad.jp/feed' },
 	{ label: 'フューチャー', url: 'https://future-architect.github.io/atom.xml' },
 	{ label: 'CARTA', url: 'https://techblog.cartaholdings.co.jp/feed' },
+
+	// Media / Entertainment
+	{ label: 'TVer', url: 'https://techblog.tver.co.jp/feed' },
+	{ label: 'Mirrativ', url: 'https://tech.mirrativ.stream/feed' },
 
 	// Startup
 	{ label: 'kubell', url: 'https://creators-note.chatwork.com/feed' },
@@ -66,6 +78,9 @@ export const OFFICIAL_FEEDS = [
 	{ label: '弥生', url: 'https://tech-blog.yayoi-kk.co.jp/feed' },
 	{ label: 'あすけん', url: 'https://tech.asken.inc/feed' },
 	{ label: 'レコチョク', url: 'https://techblog.recochoku.jp/feed/atom' },
+	{ label: '10X', url: 'https://product.10x.co.jp/feed' },
+	{ label: 'ANDPAD', url: 'https://tech.andpad.co.jp/feed' },
+	{ label: 'Nature', url: 'https://engineering.nature.global/feed' },
 
 	// Agency / Dev Shop
 	{ label: 'LIG', url: 'https://liginc.co.jp/technology/feed' },
