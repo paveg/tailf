@@ -4,21 +4,21 @@ import { PostCard } from '../../components/PostCard'
 import { TOPICS, type TopicId } from '@tailf/shared'
 import { fetchAllPostsForSSG } from '../../lib/server-api'
 
-// Topic descriptions for SEO
-const TOPIC_DESCRIPTIONS: Record<TopicId, string> = {
-	ai: 'AI・機械学習・LLMに関する日本語の技術記事を集約。ChatGPT、画像生成、自然言語処理など最新のAI技術情報',
-	backend: 'バックエンド開発に関する日本語の技術記事を集約。API設計、データベース、サーバーサイド開発の知見',
-	cloud: 'クラウド技術に関する日本語の技術記事を集約。AWS、GCP、Azureなどのクラウドサービス活用術',
-	data: 'データエンジニアリングに関する日本語の技術記事を集約。データ分析、ETL、データ基盤構築の知見',
-	devops: 'DevOps・SREに関する日本語の技術記事を集約。CI/CD、監視、インフラ自動化のベストプラクティス',
-	frontend: 'フロントエンド開発に関する日本語の技術記事を集約。React、Vue、TypeScriptなどのWeb開発技術',
-	mobile: 'モバイル開発に関する日本語の技術記事を集約。iOS、Android、Flutter、React Nativeの開発知見',
-	oss: 'オープンソースに関する日本語の技術記事を集約。OSSへのコントリビュート、ライブラリ開発の知見',
-	security: 'セキュリティに関する日本語の技術記事を集約。脆弱性対策、認証認可、セキュアコーディング',
-	web3: 'Web3・ブロックチェーンに関する日本語の技術記事を集約。スマートコントラクト、DeFi、NFT技術',
-}
-
 export async function getStaticPaths() {
+	// Topic descriptions must be defined inside getStaticPaths for Astro to access them
+	const topicDescriptions: Record<TopicId, string> = {
+		ai: 'AI・機械学習・LLMに関する日本語の技術記事を集約。ChatGPT、画像生成、自然言語処理など最新のAI技術情報',
+		backend: 'バックエンド開発に関する日本語の技術記事を集約。API設計、データベース、サーバーサイド開発の知見',
+		cloud: 'クラウド技術に関する日本語の技術記事を集約。AWS、GCP、Azureなどのクラウドサービス活用術',
+		data: 'データエンジニアリングに関する日本語の技術記事を集約。データ分析、ETL、データ基盤構築の知見',
+		devops: 'DevOps・SREに関する日本語の技術記事を集約。CI/CD、監視、インフラ自動化のベストプラクティス',
+		frontend: 'フロントエンド開発に関する日本語の技術記事を集約。React、Vue、TypeScriptなどのWeb開発技術',
+		mobile: 'モバイル開発に関する日本語の技術記事を集約。iOS、Android、Flutter、React Nativeの開発知見',
+		oss: 'オープンソースに関する日本語の技術記事を集約。OSSへのコントリビュート、ライブラリ開発の知見',
+		security: 'セキュリティに関する日本語の技術記事を集約。脆弱性対策、認証認可、セキュアコーディング',
+		web3: 'Web3・ブロックチェーンに関する日本語の技術記事を集約。スマートコントラクト、DeFi、NFT技術',
+	}
+
 	const allPosts = await fetchAllPostsForSSG()
 
 	return TOPICS.map((topic) => {
@@ -28,7 +28,7 @@ export async function getStaticPaths() {
 			props: {
 				topic,
 				posts: filteredPosts,
-				description: TOPIC_DESCRIPTIONS[topic.id],
+				description: topicDescriptions[topic.id],
 			},
 		}
 	})
