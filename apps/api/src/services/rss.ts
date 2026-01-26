@@ -265,11 +265,19 @@ export async function fetchOgImage(url: string): Promise<string | null> {
 	}
 }
 
+// Cloudflare Workers free plan has a limit of 50 subrequests per invocation
+// Reserve some for OGP fetch and Hatena bookmark updates
+const MAX_FEED_FETCHES_PER_RUN = 30
+const OGP_FETCH_LIMIT = 3
+
 export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	console.log('Starting RSS feed fetch...')
 	console.log(`[TechScore] Using ${ai ? 'batch embedding' : 'keyword-based'} scoring`)
 
 	const allFeeds = await db.query.feeds.findMany()
+	console.log(
+		`[RSS] Total feeds: ${allFeeds.length}, processing up to ${MAX_FEED_FETCHES_PER_RUN} per run`,
+	)
 
 	// Get all existing post URLs in ONE query to avoid N+1
 	const existingPosts = await db.query.posts.findMany({
@@ -296,7 +304,17 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	// Collect posts without thumbnails for OGP fetch
 	const postsWithoutThumbnails: Array<{ id: string; url: string }> = []
 
+	// Track subrequests to stay within Cloudflare Workers limits
+	let feedsFetched = 0
+
 	for (const feed of allFeeds) {
+		// Stop if we've reached the subrequest limit
+		if (feedsFetched >= MAX_FEED_FETCHES_PER_RUN) {
+			console.log(
+				`[RSS] Reached subrequest limit (${MAX_FEED_FETCHES_PER_RUN}), stopping feed fetch`,
+			)
+			break
+		}
 		try {
 			console.log(`Fetching: ${feed.feedUrl}`)
 
@@ -305,6 +323,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 					'User-Agent': 'tailf RSS Aggregator',
 				},
 			})
+			feedsFetched++
 
 			if (!response.ok) {
 				console.error(`Failed to fetch ${feed.feedUrl}: ${response.status}`)
@@ -366,9 +385,10 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		}
 	}
 
-	// Batch insert new posts (chunks of 20 to stay within SQLite variable limits)
-	// SQLite has a limit of 999 variables, and each post has ~10 columns
-	const BATCH_SIZE = 20
+	// Batch insert new posts (chunks of 5 to stay within D1 variable limits)
+	// D1 has a limit of 100 bound parameters per query, and each post has ~10 columns
+	// 5 posts × 10 columns = 50 variables (safe margin under 100)
+	const BATCH_SIZE = 5
 	if (postsToInsert.length > 0) {
 		console.log(`[DB] Batch inserting ${postsToInsert.length} new posts...`)
 		for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
@@ -422,7 +442,6 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	}
 
 	// Fetch OGP images for posts without thumbnails (limit to avoid subrequest issues)
-	const OGP_FETCH_LIMIT = 5
 	const postsToFetchOgp = postsWithoutThumbnails.slice(0, OGP_FETCH_LIMIT)
 
 	if (postsToFetchOgp.length > 0) {

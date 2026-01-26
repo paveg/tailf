@@ -160,12 +160,19 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 		postsByFeed.set(post.feedId, existing)
 	}
 
-	// Get feed URLs
+	// Get feed URLs (chunk to avoid D1 variable limit)
 	const feedIds = Array.from(postsByFeed.keys())
-	const feedRecords = await db.query.feeds.findMany({
-		where: (f, { inArray }) => inArray(f.id, feedIds),
-		columns: { id: true, feedUrl: true },
-	})
+	const D1_MAX_VARIABLES = 100
+	const feedRecords: Array<{ id: string; feedUrl: string }> = []
+
+	for (let i = 0; i < feedIds.length; i += D1_MAX_VARIABLES) {
+		const chunk = feedIds.slice(i, i + D1_MAX_VARIABLES)
+		const chunkRecords = await db.query.feeds.findMany({
+			where: (f, { inArray }) => inArray(f.id, chunk),
+			columns: { id: true, feedUrl: true },
+		})
+		feedRecords.push(...chunkRecords)
+	}
 
 	const feedUrlMap = new Map(feedRecords.map((f) => [f.id, f.feedUrl]))
 
