@@ -73,6 +73,9 @@ const isProd = import.meta.env.PROD
 			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
 			rel="stylesheet"
 		/>
+
+		<!-- Page-specific head content -->
+		<slot name="head" />
 	</head>
 	<body class="min-h-screen overflow-x-hidden bg-background antialiased">
 		<div class="relative flex min-h-screen flex-col">
@@ -83,14 +86,12 @@ const isProd = import.meta.env.PROD
 						<a href="/posts" class="text-sm font-medium text-muted-foreground hover:text-foreground">
 							記事一覧
 						</a>
+						<a href="/topics" class="text-sm font-medium text-muted-foreground hover:text-foreground">
+							トピック
+						</a>
 						<a href="/feeds" class="text-sm font-medium text-muted-foreground hover:text-foreground">
 							フィード一覧
 						</a>
-						<!-- TODO: ランキング機能は後回し
-						<a href="/ranking" class="text-sm font-medium text-muted-foreground hover:text-foreground">
-							ランキング
-						</a>
-						-->
 					</nav>
 					<div class="ml-auto flex items-center gap-2">
 						<MobileNav client:idle />

@@ -4,7 +4,7 @@
  * シンプルなサイドメニュー
  * shadcn/ui Sheetベース
  */
-import { FileText, LogIn, LogOut, Menu, Monitor, Moon, Rss, Sun } from 'lucide-react'
+import { FileText, Hash, LogIn, LogOut, Menu, Monitor, Moon, Rss, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useCurrentUser, useLogout } from '@/lib/hooks'
 import { QueryProvider } from './QueryProvider'
@@ -15,6 +15,7 @@ type Theme = 'light' | 'dark' | 'system'
 
 const navLinks = [
 	{ href: '/posts', label: '記事一覧', icon: FileText },
+	{ href: '/topics', label: 'トピック', icon: Hash },
 	{ href: '/feeds', label: 'フィード一覧', icon: Rss },
 ]
 
