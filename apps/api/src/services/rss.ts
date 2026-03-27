@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
 import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
 import { assignTopics } from './topic-assignment'
@@ -48,23 +49,6 @@ function getLinkHref(content: string): string | undefined {
 	// Fallback: any link with href (single quotes)
 	const simpleMatchSingle = content.match(/<link[^>]+href='([^']+)'/i)
 	return simpleMatchSingle?.[1]
-}
-
-/**
- * Decode HTML entities in a string
- * Handles common entities: &amp; &lt; &gt; &quot; &apos; and numeric entities
- */
-export function decodeHtmlEntities(text: string): string {
-	return text
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&apos;/g, "'")
-		.replace(/&#39;/g, "'")
-		.replace(/&#x27;/g, "'")
-		.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
-		.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
 }
 
 /**
@@ -266,9 +250,10 @@ export async function fetchOgImage(url: string): Promise<string | null> {
 }
 
 // Cloudflare Workers free plan has a limit of 50 subrequests per invocation
-// Reserve some for OGP fetch and Hatena bookmark updates
-const MAX_FEED_FETCHES_PER_RUN = 30
-const OGP_FETCH_LIMIT = 3
+// With 10 feeds + DB queries + OGP + AI calls, budget is ~39 subrequests
+// All feeds rotate every ~3 hours via orderBy: asc(lastFetchedAt)
+const MAX_FEED_FETCHES_PER_RUN = 10
+const OGP_FETCH_LIMIT = 1
 
 export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	console.log('Starting RSS feed fetch...')

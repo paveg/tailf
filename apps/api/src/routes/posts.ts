@@ -20,13 +20,10 @@ import type { Env } from '..'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { topicsToArray } from '../services/topic-assignment'
+import { D1_MAX_VARIABLES, TECH_SCORE_THRESHOLD } from '../utils/constants'
 import { parsePopularCursor } from '../utils/cursor'
 import { getThreshold } from '../utils/date'
 import { buildCursorResponse } from '../utils/pagination'
-
-// Tech filter threshold
-// 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
-const TECH_SCORE_THRESHOLD = 0.65
 
 // Extended schema with techOnly, official, sort, excludeAuthorId, and topic filters
 const postsQuerySchema = v.object({
@@ -49,9 +46,7 @@ const postsQuerySchema = v.object({
 	topic: v.optional(v.string()),
 })
 
-// D1 has a limit of 100 bound parameters per query
-// Use chunked queries when array might exceed this limit
-const D1_MAX_VARIABLES = 100
+// Use chunked queries when array might exceed D1 variable limit
 
 /**
  * Build SQL condition for filtering by feed IDs with D1 variable limit handling

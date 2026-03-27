@@ -2,6 +2,7 @@
  * Tech score calculation for posts
  * Keyword-based scoring (0.0 - 1.0)
  */
+import { cleanTextForScoring, decodeHtmlEntities } from '../utils/html'
 
 // High confidence tech keywords (weight: 0.3 each, max 3 matches = 0.9)
 const HIGH_WEIGHT_KEYWORDS = [
@@ -399,24 +400,6 @@ const LOW_WEIGHT_KEYWORDS = [
 ]
 
 /**
- * Decode HTML entities in text
- * Handles common entities found in RSS feed summaries
- */
-function decodeHtmlEntities(text: string): string {
-	return text
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&hellip;/g, '...')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/<[^>]*>/g, ' ') // Strip HTML tags
-		.replace(/\s+/g, ' ') // Normalize whitespace
-		.trim()
-}
-
-/**
  * Count keyword matches in text, up to maxMatches limit
  */
 function countMatches(text: string, keywords: readonly string[], maxMatches: number): number {
@@ -433,7 +416,7 @@ function countMatches(text: string, keywords: readonly string[], maxMatches: num
  */
 export function calculateTechScore(title: string, summary?: string): number {
 	const rawText = `${title} ${summary ?? ''}`
-	const text = decodeHtmlEntities(rawText).toLowerCase()
+	const text = cleanTextForScoring(rawText).toLowerCase()
 
 	const score =
 		countMatches(text, HIGH_WEIGHT_KEYWORDS, 3) * 0.3 +
