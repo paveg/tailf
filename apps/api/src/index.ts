@@ -64,18 +64,15 @@ app.route('/api/admin', adminRoute)
 // Cron handler for RSS fetching and bookmark updates
 export default {
 	fetch: app.fetch,
-	async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
 		const db = createDb(env.DB)
-		ctx.waitUntil(
-			(async () => {
-				// Phase 1: RSS fetch + reconcile in parallel
-				// (reconcile is DB-only, no external API calls)
-				await Promise.all([fetchRssFeeds(db, env.AI), reconcileBookmarkCounts(db)])
 
-				// Phase 2: Hatena bookmark update (sequential to avoid subrequest limit)
-				// This runs after RSS fetch completes, spreading out external API calls
-				await updateRecentBookmarkCounts(db)
-			})(),
-		)
+		if (event.cron === '0 * * * *') {
+			// RSS fetch + bookmark reconciliation (~39 subrequests)
+			ctx.waitUntil(Promise.all([fetchRssFeeds(db, env.AI), reconcileBookmarkCounts(db)]))
+		} else if (event.cron === '30 * * * *') {
+			// Hatena bookmark updates (~21 subrequests)
+			ctx.waitUntil(updateRecentBookmarkCounts(db))
+		}
 	},
 }

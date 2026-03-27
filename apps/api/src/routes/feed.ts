@@ -8,11 +8,8 @@ import type { Database } from '../db'
 import { feedBookmarks, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { topicsToArray } from '../services/topic-assignment'
+import { TECH_SCORE_THRESHOLD } from '../utils/constants'
 import { buildCursorResponse } from '../utils/pagination'
-
-// Tech filter threshold
-// 0.65+ = programming/dev articles, 0.55-0.65 = gadget reviews, <0.55 = non-tech
-const TECH_SCORE_THRESHOLD = 0.65
 
 // Extended schema with techOnly filter
 const feedQuerySchema = v.object({

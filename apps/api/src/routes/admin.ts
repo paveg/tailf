@@ -8,9 +8,11 @@ import type { Database } from '../db'
 import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
-import { decodeHtmlEntities, fetchOgImage, parseFeed } from '../services/rss'
+import { fetchOgImage, parseFeed } from '../services/rss'
 import { calculateTechScoresBatch } from '../services/tech-score'
 import { assignTopics } from '../services/topic-assignment'
+import { D1_MAX_VARIABLES } from '../utils/constants'
+import { decodeHtmlEntities } from '../utils/html'
 
 type Variables = {
 	db: Database
@@ -163,7 +165,7 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 	// Get feed URLs (chunk to avoid D1 variable limit)
 	const feedIds = Array.from(postsByFeed.keys())
-	const D1_MAX_VARIABLES = 100
+	// Chunk to avoid D1 variable limit
 	const feedRecords: Array<{ id: string; feedUrl: string }> = []
 
 	for (let i = 0; i < feedIds.length; i += D1_MAX_VARIABLES) {

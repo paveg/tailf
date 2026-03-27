@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { decodeHtmlEntities, parseAtom, parseFeed, parseRss } from './rss'
+import { decodeHtmlEntities } from '../utils/html'
+import { parseAtom, parseFeed, parseRss } from './rss'
 
 /**
  * fetchRssFeeds integration behavior tests

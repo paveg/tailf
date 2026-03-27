@@ -2,6 +2,7 @@
  * Topic assignment for posts
  * Keyword-based topic detection (max 2 topics per post)
  */
+import { cleanTextForScoring } from '../utils/html'
 
 // 10 fixed topics
 export const TOPIC_IDS = [
@@ -593,23 +594,6 @@ const TOPIC_KEYWORDS: Record<TopicId, string[]> = {
 }
 
 /**
- * Decode HTML entities in text
- */
-function decodeHtmlEntities(text: string): string {
-	return text
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&hellip;/g, '...')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/<[^>]*>/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim()
-}
-
-/**
  * Assign topics based on keyword matching
  * Returns [mainTopic, subTopic] where subTopic may be undefined
  *
@@ -622,7 +606,7 @@ export function assignTopics(
 	summary?: string,
 ): { mainTopic: TopicId | null; subTopic: TopicId | null } {
 	const rawText = `${title} ${summary ?? ''}`
-	const text = decodeHtmlEntities(rawText).toLowerCase()
+	const text = cleanTextForScoring(rawText).toLowerCase()
 
 	// Count keyword matches per topic
 	const scores: Array<{ topic: TopicId; score: number }> = []
