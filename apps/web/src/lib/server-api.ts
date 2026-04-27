@@ -26,8 +26,8 @@ import type { ApiResponse, CursorResponse } from './api'
 
 interface ApiBaseUrl {
 	url: string
-	/** True when PUBLIC_API_URL was set (treated as a production build). */
-	isProd: boolean
+	/** True when this build is going to be deployed and must not produce empty pages. */
+	strict: boolean
 }
 
 /**
@@ -35,15 +35,19 @@ interface ApiBaseUrl {
  *
  * Production: https://tailf.pavegy.workers.dev/api (PUBLIC_API_URL)
  * Local dev:  http://localhost:8788/api (fallback)
+ *
+ * `SSG_ALLOW_EMPTY=true` opts out of fail-loud for builds that don't deploy
+ * (PR CI uses a placeholder PUBLIC_API_URL just to check that Astro builds).
  */
 function getApiBaseUrl(): ApiBaseUrl {
 	const apiUrl = import.meta.env.PUBLIC_API_URL
-	if (apiUrl) return { url: apiUrl, isProd: true }
-	return { url: 'http://localhost:8788/api', isProd: false }
+	const lenient = process.env.SSG_ALLOW_EMPTY === 'true'
+	if (apiUrl) return { url: apiUrl, strict: !lenient }
+	return { url: 'http://localhost:8788/api', strict: false }
 }
 
-function abortInProd(isProd: boolean, message: string): never | undefined {
-	if (isProd) throw new Error(message)
+function abortIfStrict(strict: boolean, message: string): never | undefined {
+	if (strict) throw new Error(message)
 	console.error(message)
 	return undefined
 }
@@ -53,7 +57,7 @@ function abortInProd(isProd: boolean, message: string): never | undefined {
  * Fetches in batches until no more data
  */
 export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
-	const { url: baseUrl, isProd } = getApiBaseUrl()
+	const { url: baseUrl, strict } = getApiBaseUrl()
 	const allPosts: PostWithFeed[] = []
 	let cursor: string | null = null
 	const limit = 100
@@ -70,15 +74,15 @@ export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
 		try {
 			response = await fetch(url)
 		} catch (error) {
-			abortInProd(
-				isProd,
+			abortIfStrict(
+				strict,
 				`[SSG] Network error fetching ${url}: ${error instanceof Error ? error.message : String(error)}`,
 			)
 			return allPosts
 		}
 
 		if (!response.ok) {
-			abortInProd(isProd, `[SSG] Failed to fetch ${url}: ${response.status}`)
+			abortIfStrict(strict, `[SSG] Failed to fetch ${url}: ${response.status}`)
 			return allPosts
 		}
 
@@ -92,7 +96,7 @@ export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
 	}
 
 	console.log(`[SSG] Fetched ${allPosts.length} posts`)
-	if (isProd && allPosts.length === 0) {
+	if (strict && allPosts.length === 0) {
 		throw new Error(
 			`[SSG] Aborting build: ${baseUrl}/posts returned 0 posts. ` +
 				`Refusing to deploy SSG pages with empty data.`,
@@ -105,28 +109,28 @@ export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
  * Fetch all feeds from API (server-side, for SSG)
  */
 export async function fetchFeedsForSSG(): Promise<Feed[]> {
-	const { url: baseUrl, isProd } = getApiBaseUrl()
+	const { url: baseUrl, strict } = getApiBaseUrl()
 	const url = `${baseUrl}/feeds?perPage=100`
 
 	let response: Response
 	try {
 		response = await fetch(url)
 	} catch (error) {
-		abortInProd(
-			isProd,
+		abortIfStrict(
+			strict,
 			`[SSG] Network error fetching ${url}: ${error instanceof Error ? error.message : String(error)}`,
 		)
 		return []
 	}
 
 	if (!response.ok) {
-		abortInProd(isProd, `[SSG] Failed to fetch ${url}: ${response.status}`)
+		abortIfStrict(strict, `[SSG] Failed to fetch ${url}: ${response.status}`)
 		return []
 	}
 
 	const result: ApiResponse<Feed[]> = await response.json()
 	console.log(`[SSG] Fetched ${result.data.length} feeds`)
-	if (isProd && result.data.length === 0) {
+	if (strict && result.data.length === 0) {
 		throw new Error(
 			`[SSG] Aborting build: ${url} returned 0 feeds. ` +
 				`Refusing to deploy SSG pages with empty data.`,

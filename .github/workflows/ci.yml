@@ -37,4 +37,7 @@ jobs:
       - name: Build
         run: pnpm build
         env:
+          # Placeholder URL is unreachable; opt out of strict SSG fetch so the
+          # build verifies pipeline syntax without needing real data.
           PUBLIC_API_URL: https://example.com/api
+          SSG_ALLOW_EMPTY: 'true'
