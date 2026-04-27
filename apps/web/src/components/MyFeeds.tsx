@@ -1,3 +1,4 @@
+import { isSafeUrl } from '@tailf/shared'
 import {
 	Bookmark,
 	ExternalLink,
@@ -320,7 +321,7 @@ function MyFeedsContent() {
 									<div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 									<div className="relative flex items-start justify-between gap-4">
 										<a
-											href={feed.siteUrl}
+											href={isSafeUrl(feed.siteUrl) ? feed.siteUrl : '#'}
 											target="_blank"
 											rel="noopener noreferrer"
 											className="min-w-0 flex-1"

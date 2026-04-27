@@ -4,7 +4,7 @@
  * はてなブックマーク数を元に、直近1週間の人気記事を表示
  * Gold/Silver/Bronze ranking badges for top 3
  */
-import type { PostWithFeed } from '@tailf/shared'
+import { isSafeUrl, type PostWithFeed } from '@tailf/shared'
 import { Calendar, ExternalLink, Flame, TrendingUp } from 'lucide-react'
 import { HatenaBookmarkIcon } from '@/components/icons/HatenaBookmarkIcon'
 import { useRankingPosts } from '@/lib/hooks'
@@ -54,7 +54,12 @@ function RankingCard({ post, rank }: RankingCardProps) {
 				animationDelay: `${rank * 80}ms`,
 			}}
 		>
-			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
+			<a
+				href={isSafeUrl(post.url) ? post.url : '#'}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="block"
+			>
 				{/* Thumbnail with Rank Badge overlay */}
 				<div className="relative mb-2 aspect-[2/1] w-full overflow-hidden border-b bg-muted">
 					{post.thumbnailUrl ? (
