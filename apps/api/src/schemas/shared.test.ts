@@ -1,6 +1,7 @@
 import {
 	createFeedSchema,
 	cursorPaginationQuerySchema,
+	paginationQuerySchema,
 	paginationSchema,
 	searchSchema,
 } from '@tailf/shared'
@@ -116,6 +117,61 @@ describe('cursorPaginationQuerySchema', () => {
 		const result = v.safeParse(cursorPaginationQuerySchema, {
 			cursor: '42:2024-01-15T12:00:00.000Z',
 		})
+		expect(result.success).toBe(true)
+	})
+
+	it('rejects limit greater than 100', () => {
+		const result = v.safeParse(cursorPaginationQuerySchema, { limit: '1000000' })
+		expect(result.success).toBe(false)
+	})
+
+	it('rejects limit less than 1', () => {
+		const result = v.safeParse(cursorPaginationQuerySchema, { limit: '0' })
+		expect(result.success).toBe(false)
+	})
+
+	it('accepts limit at the upper bound', () => {
+		const result = v.safeParse(cursorPaginationQuerySchema, { limit: '100' })
+		expect(result.success).toBe(true)
+	})
+})
+
+describe('paginationQuerySchema', () => {
+	it('uses defaults for empty input', () => {
+		const result = v.safeParse(paginationQuerySchema, {})
+		expect(result.success).toBe(true)
+		if (result.success) {
+			expect(result.output.page).toBe(1)
+			expect(result.output.perPage).toBe(20)
+		}
+	})
+
+	it('parses page and perPage from query strings', () => {
+		const result = v.safeParse(paginationQuerySchema, { page: '5', perPage: '50' })
+		expect(result.success).toBe(true)
+		if (result.success) {
+			expect(result.output.page).toBe(5)
+			expect(result.output.perPage).toBe(50)
+		}
+	})
+
+	it('rejects perPage greater than 100', () => {
+		const result = v.safeParse(paginationQuerySchema, { perPage: '1000000' })
+		expect(result.success).toBe(false)
+	})
+
+	it('rejects perPage less than 1', () => {
+		const result = v.safeParse(paginationQuerySchema, { perPage: '0' })
+		expect(result.success).toBe(false)
+	})
+
+	it('rejects page less than 1', () => {
+		const result = v.safeParse(paginationQuerySchema, { page: '0' })
+		expect(result.success).toBe(false)
+	})
+
+	it('accepts perPage at the upper bound', () => {
+		const result = v.safeParse(paginationQuerySchema, { perPage: '100' })
 		expect(result.success).toBe(true)
 	})
 })

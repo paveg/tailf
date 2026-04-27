@@ -1,5 +1,5 @@
 import { vValidator } from '@hono/valibot-validator'
-import { createFeedSchema, updateFeedSchema } from '@tailf/shared'
+import { createFeedSchema, paginationQuerySchema, updateFeedSchema } from '@tailf/shared'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
@@ -8,9 +8,14 @@ import type { Database } from '../db'
 import { feedBookmarks, feeds, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { fetchAndParseFeed } from '../services/rss'
-import { calculateTechScoreWithEmbedding } from '../services/tech-score'
+import { calculateTechScoresBatch } from '../services/tech-score'
 import { generateId } from '../utils/id'
 import { detectFeedType, normalizeUrl } from '../utils/url'
+
+// Cap items imported on a single registration call. Each item also costs
+// AI subrequests; without this an attacker-controlled feed with thousands
+// of items would blow past the per-invocation subrequest budget.
+const MAX_ITEMS_PER_REGISTRATION = 50
 
 type Variables = {
 	db: Database
@@ -25,8 +30,7 @@ feedsRoute.get(
 	vValidator(
 		'query',
 		v.object({
-			page: v.optional(v.pipe(v.string(), v.transform(Number)), '1'),
-			perPage: v.optional(v.pipe(v.string(), v.transform(Number)), '20'),
+			...paginationQuerySchema.entries,
 			official: v.optional(
 				v.pipe(
 					v.string(),
@@ -116,42 +120,32 @@ feedsRoute.get('/:id', async (c) => {
 })
 
 // Get feed's posts
-feedsRoute.get(
-	'/:id/posts',
-	vValidator(
-		'query',
-		v.object({
-			page: v.optional(v.pipe(v.string(), v.transform(Number)), '1'),
-			perPage: v.optional(v.pipe(v.string(), v.transform(Number)), '20'),
-		}),
-	),
-	async (c) => {
-		const id = c.req.param('id')
-		const { page, perPage } = c.req.valid('query')
-		const db = c.get('db')
+feedsRoute.get('/:id/posts', vValidator('query', paginationQuerySchema), async (c) => {
+	const id = c.req.param('id')
+	const { page, perPage } = c.req.valid('query')
+	const db = c.get('db')
 
-		const offset = (page - 1) * perPage
-		const feed = await db.query.feeds.findFirst({
-			where: eq(feeds.id, id),
-			with: {
-				posts: {
-					limit: perPage,
-					offset,
-					orderBy: (posts, { desc }) => [desc(posts.publishedAt)],
-				},
+	const offset = (page - 1) * perPage
+	const feed = await db.query.feeds.findFirst({
+		where: eq(feeds.id, id),
+		with: {
+			posts: {
+				limit: perPage,
+				offset,
+				orderBy: (posts, { desc }) => [desc(posts.publishedAt)],
 			},
-		})
+		},
+	})
 
-		if (!feed) {
-			return c.json({ error: 'Feed not found' }, 404)
-		}
+	if (!feed) {
+		return c.json({ error: 'Feed not found' }, 404)
+	}
 
-		return c.json({
-			data: feed.posts,
-			meta: { page, perPage },
-		})
-	},
-)
+	return c.json({
+		data: feed.posts,
+		meta: { page, perPage },
+	})
+})
 
 // Register a new feed
 feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c) => {
@@ -197,16 +191,28 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 		})
 		console.log(`[Feed Register] Feed created: ${feedId} (type: ${feedType})`)
 
-		// Insert posts from feed with embedding-based tech score
-		const filteredItems = parsedFeed.items.filter((item) => item.title && item.link)
-		let importedCount = 0
+		// Insert posts from feed. Cap items so a malicious feed cannot exhaust
+		// the AI subrequest budget, then score the whole batch in one call
+		// (per-item embedding × N would otherwise blow past the 50 subrequest
+		// limit for any feed with more than ~15 items).
+		const filteredItems = parsedFeed.items
+			.filter((item) => item.title && item.link)
+			.slice(0, MAX_ITEMS_PER_REGISTRATION)
 
-		for (const item of filteredItems) {
+		const scores = await calculateTechScoresBatch(
+			c.env.AI,
+			filteredItems.map((item) => ({
+				title: item.title,
+				summary: item.description?.slice(0, 500),
+			})),
+		)
+
+		let importedCount = 0
+		for (let i = 0; i < filteredItems.length; i++) {
+			const item = filteredItems[i]
+			const techScore = scores[i]
 			try {
 				const summary = item.description?.slice(0, 500)
-				// Use embedding-based tech score (falls back to keyword if AI unavailable)
-				const techScore = await calculateTechScoreWithEmbedding(c.env.AI, item.title, summary)
-
 				await db
 					.insert(posts)
 					.values({
