@@ -13,16 +13,30 @@ type Variables = {
 
 export const authRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+// CSRF state cookie lifetime: long enough for the GitHub round-trip but
+// short so a stolen cookie can't be replayed days later.
+const OAUTH_STATE_COOKIE_MAX_AGE_SECONDS = 600
+
 // GitHub OAuth login - redirect to GitHub
 authRoute.get('/github', (c) => {
 	const clientId = c.env.GITHUB_CLIENT_ID
 	const apiUrl = c.env.API_URL || new URL(c.req.url).origin
 	const redirectUri = `${apiUrl}/api/auth/github/callback`
 
+	const state = generateId()
+	setCookie(c, 'oauth_state', state, {
+		httpOnly: true,
+		secure: c.env.ENVIRONMENT === 'production',
+		sameSite: 'Lax',
+		path: '/',
+		maxAge: OAUTH_STATE_COOKIE_MAX_AGE_SECONDS,
+	})
+
 	const params = new URLSearchParams({
 		client_id: clientId,
 		redirect_uri: redirectUri,
 		scope: 'read:user',
+		state,
 	})
 
 	return c.redirect(`https://github.com/login/oauth/authorize?${params}`)
@@ -30,6 +44,13 @@ authRoute.get('/github', (c) => {
 
 // GitHub OAuth callback
 authRoute.get('/github/callback', async (c) => {
+	const state = c.req.query('state')
+	const cookieState = getCookie(c, 'oauth_state')
+	if (!state || !cookieState || state !== cookieState) {
+		return c.json({ error: 'Invalid state' }, 400)
+	}
+	deleteCookie(c, 'oauth_state', { path: '/' })
+
 	const code = c.req.query('code')
 	if (!code) {
 		return c.json({ error: 'No code provided' }, 400)
