@@ -31,16 +31,19 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 // Middleware
 app.use('*', logger())
+
+// Explicit CORS allowlist. Substring matching previously allowed
+// evil-tailf.com, tailf.evil.example, and localhost.evil.example.
+const ALLOWED_ORIGINS = [
+	'http://localhost:4321',
+	'http://localhost:8788',
+	'https://tailf.pavegy.workers.dev',
+]
+
 app.use(
 	'*',
 	cors({
-		origin: (origin) => {
-			// Allow localhost and tailf
-			if (origin.includes('localhost') || origin.includes('tailf')) {
-				return origin
-			}
-			return null
-		},
+		origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : null),
 		credentials: true,
 	}),
 )
