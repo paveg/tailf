@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeUrl } from './url'
+import { isAllowedExternalUrl, isPrivateHostname, normalizeUrl } from './url'
 
 describe('normalizeUrl', () => {
 	describe('protocol handling', () => {
@@ -155,5 +155,82 @@ describe('normalizeUrl', () => {
 		it('does not affect non-SpeakerDeck .rss URLs', () => {
 			expect(normalizeUrl('https://example.com/feed.rss')).toBe('https://example.com/feed.rss')
 		})
+	})
+})
+
+describe('isPrivateHostname', () => {
+	it.each([
+		'localhost',
+		'127.0.0.1',
+		'127.255.255.254',
+		'10.0.0.1',
+		'10.255.255.255',
+		'172.16.0.1',
+		'172.31.255.255',
+		'192.168.0.1',
+		'192.168.255.255',
+		'169.254.169.254',
+		'0.0.0.0',
+		'0',
+		'2130706433',
+		'0x7f000001',
+		'017700000001',
+		'::1',
+		'[::1]',
+		'::ffff:127.0.0.1',
+		'[::ffff:127.0.0.1]',
+		'fc00::1',
+		'fd12:3456:789a::1',
+		'fe80::1',
+	])('rejects %s as private', (hostname) => {
+		expect(isPrivateHostname(hostname)).toBe(true)
+	})
+
+	it.each([
+		'example.com',
+		'api.github.com',
+		'tailf.pavegy.workers.dev',
+		'8.8.8.8',
+		'1.1.1.1',
+		'172.15.0.1',
+		'172.32.0.1',
+		'2001:4860:4860::8888',
+	])('accepts %s as public', (hostname) => {
+		expect(isPrivateHostname(hostname)).toBe(false)
+	})
+})
+
+describe('isAllowedExternalUrl', () => {
+	it.each([
+		'https://example.com/',
+		'http://example.com/feed.xml',
+	])('allows public http(s) %s', (url) => {
+		expect(isAllowedExternalUrl(url)).toBe(true)
+	})
+
+	it.each([
+		'javascript:alert(1)',
+		'data:text/html,<script>alert(1)</script>',
+		'file:///etc/passwd',
+		'gopher://example.com/',
+		'ftp://example.com/',
+	])('rejects non-http(s) scheme %s', (url) => {
+		expect(isAllowedExternalUrl(url)).toBe(false)
+	})
+
+	it.each([
+		'http://127.0.0.1/',
+		'http://localhost/admin',
+		'http://[::1]/',
+		'http://10.0.0.1/',
+		'http://169.254.169.254/latest/meta-data/',
+		'http://2130706433/',
+	])('rejects private hostname %s', (url) => {
+		expect(isAllowedExternalUrl(url)).toBe(false)
+	})
+
+	it('rejects empty and malformed input', () => {
+		expect(isAllowedExternalUrl('')).toBe(false)
+		expect(isAllowedExternalUrl('not a url')).toBe(false)
 	})
 })
