@@ -28,7 +28,7 @@ importers:
     dependencies:
       '@hono/valibot-validator':
         specifier: ^0.5.0
-        version: 0.5.3(hono@4.11.4)(valibot@1.2.0(typescript@5.9.3))
+        version: 0.5.3(hono@4.12.14)(valibot@1.2.0(typescript@5.9.3))
       '@tailf/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -39,8 +39,8 @@ importers:
         specifier: ^4.5.0
         version: 4.5.3
       hono:
-        specifier: ^4.6.0
-        version: 4.11.4
+        specifier: ^4.12.14
+        version: 4.12.14
       valibot:
         specifier: ^1.0.0
         version: 1.2.0(typescript@5.9.3)
@@ -3441,8 +3441,8 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
-  hono@4.11.4:
-    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
+  hono@4.12.14:
+    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -6104,9 +6104,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@hono/valibot-validator@0.5.3(hono@4.11.4)(valibot@1.2.0(typescript@5.9.3))':
+  '@hono/valibot-validator@0.5.3(hono@4.12.14)(valibot@1.2.0(typescript@5.9.3))':
     dependencies:
-      hono: 4.11.4
+      hono: 4.12.14
       valibot: 1.2.0(typescript@5.9.3)
 
   '@img/colour@1.0.0': {}
@@ -8202,7 +8202,7 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
-  hono@4.11.4: {}
+  hono@4.12.14: {}
 
   html-escaper@3.0.3: {}
 
