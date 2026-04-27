@@ -9,6 +9,7 @@ import { posts } from '../db/schema'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
 import { fetchOgImage, parseFeed } from '../services/rss'
+import { safeFetchExternal } from '../services/safe-fetch'
 import { calculateTechScoresBatch } from '../services/tech-score'
 import { assignTopics } from '../services/topic-assignment'
 import { D1_MAX_VARIABLES } from '../utils/constants'
@@ -190,12 +191,9 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 		if (!feedUrl) continue
 
 		try {
-			const response = await fetch(feedUrl, {
-				headers: { 'User-Agent': 'tailf RSS Aggregator' },
-			})
-			if (!response.ok) continue
+			const xml = await safeFetchExternal(feedUrl)
+			if (xml === null) continue
 
-			const xml = await response.text()
 			const parsedFeed = parseFeed(xml)
 			if (!parsedFeed) continue
 

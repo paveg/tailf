@@ -3,6 +3,7 @@ import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
+import { safeFetchExternal } from './safe-fetch'
 import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
 import { assignTopics } from './topic-assignment'
 
@@ -216,15 +217,8 @@ export function parseFeed(xml: string): RssFeed | null {
  */
 export async function fetchOgImage(url: string): Promise<string | null> {
 	try {
-		const response = await fetch(url, {
-			headers: {
-				'User-Agent': 'tailf RSS Aggregator',
-			},
-		})
-
-		if (!response.ok) return null
-
-		const html = await response.text()
+		const html = await safeFetchExternal(url)
+		if (html === null) return null
 
 		// Try og:image first
 		const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
@@ -307,21 +301,16 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		try {
 			console.log(`Fetching: ${feed.feedUrl}`)
 
-			const response = await fetch(feed.feedUrl, {
-				headers: {
-					'User-Agent': 'tailf RSS Aggregator',
-				},
-			})
+			const xml = await safeFetchExternal(feed.feedUrl)
 			feedsFetched++
 
-			if (!response.ok) {
-				console.error(`Failed to fetch ${feed.feedUrl}: ${response.status}`)
+			if (xml === null) {
+				console.error(`Failed to fetch ${feed.feedUrl} (rejected, error, or oversized)`)
 				// Still update lastFetchedAt to avoid retrying failed feeds immediately
 				await db.update(feeds).set({ lastFetchedAt: new Date() }).where(eq(feeds.id, feed.id))
 				continue
 			}
 
-			const xml = await response.text()
 			const parsedFeed = parseFeed(xml)
 
 			if (!parsedFeed) {
@@ -467,17 +456,8 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 // Fetch single feed and return parsed result (for blog registration)
 export async function fetchAndParseFeed(feedUrl: string): Promise<RssFeed | null> {
 	try {
-		const response = await fetch(feedUrl, {
-			headers: {
-				'User-Agent': 'tailf RSS Aggregator',
-			},
-		})
-
-		if (!response.ok) {
-			return null
-		}
-
-		const xml = await response.text()
+		const xml = await safeFetchExternal(feedUrl)
+		if (xml === null) return null
 		return parseFeed(xml)
 	} catch {
 		return null
