@@ -27,13 +27,28 @@ export const paginationSchema = v.object({
 
 export type PaginationInput = v.InferInput<typeof paginationSchema>
 
-// Cursor-based pagination schema (for query string - values come as strings)
+// Cursor-based pagination schema (for query string - values come as strings).
+// Cap limit at 100 so attackers can't request a million-row page and drain D1
+// reads.
 export const cursorPaginationQuerySchema = v.object({
 	cursor: v.optional(v.string()),
-	limit: v.optional(v.pipe(v.string(), v.transform(Number)), '20'),
+	limit: v.optional(v.pipe(v.string(), v.transform(Number), v.minValue(1), v.maxValue(100)), '20'),
 })
 
 export type CursorPaginationQueryInput = v.InferInput<typeof cursorPaginationQuerySchema>
+
+// Offset pagination schema for query strings (page / perPage as transformed
+// strings). Mirrors paginationSchema but accepts the string form Hono passes
+// from req.query, with the same cap on perPage.
+export const paginationQuerySchema = v.object({
+	page: v.optional(v.pipe(v.string(), v.transform(Number), v.minValue(1)), '1'),
+	perPage: v.optional(
+		v.pipe(v.string(), v.transform(Number), v.minValue(1), v.maxValue(100)),
+		'20',
+	),
+})
+
+export type PaginationQueryInput = v.InferInput<typeof paginationQuerySchema>
 
 // Search schema
 export const searchSchema = v.object({
