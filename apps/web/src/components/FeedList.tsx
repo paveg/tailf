@@ -3,7 +3,7 @@
  *
  * SSG + クライアントフォールバック方式
  */
-import type { FeedWithAuthor } from '@tailf/shared'
+import { type FeedWithAuthor, isSafeUrl } from '@tailf/shared'
 import { Bookmark, Building2, ExternalLink, Presentation, Rss, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -186,7 +186,7 @@ function FeedListContent({ initialFeeds }: FeedListContentProps) {
 									{/* Title row */}
 									<div className="flex w-full items-center justify-between gap-2">
 										<a
-											href={feed.siteUrl}
+											href={isSafeUrl(feed.siteUrl) ? feed.siteUrl : '#'}
 											target="_blank"
 											rel="noopener noreferrer"
 											className="flex min-w-0 items-center gap-2"

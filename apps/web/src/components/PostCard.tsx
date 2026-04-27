@@ -1,3 +1,4 @@
+import { isSafeUrl } from '@tailf/shared'
 import { Calendar, ExternalLink } from 'lucide-react'
 import { HatenaBookmarkIcon } from '@/components/icons/HatenaBookmarkIcon'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +29,12 @@ export function PostCard({ post }: PostCardProps) {
 
 	return (
 		<Card className="group overflow-hidden pt-0 transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted/50">
-			<a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
+			<a
+				href={isSafeUrl(post.url) ? post.url : '#'}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="block"
+			>
 				<div className="mb-2 aspect-[2/1] w-full overflow-hidden border-b bg-muted">
 					{post.thumbnailUrl ? (
 						<img
