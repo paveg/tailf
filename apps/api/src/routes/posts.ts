@@ -234,11 +234,25 @@ postsRoute.get(
 			}
 		}
 
-		// Semantic path requires a long-enough query AND a working AI binding
-		if (q.length >= 3 && ai) {
-			try {
-				const queryVec = await compute(ai, q)
+		// Semantic path requires a long-enough query AND a working AI binding.
+		// MAX_CANDIDATES bounds memory: ~4 KB embedding × 5000 = ~20 MB BLOB plus
+		// another ~20 MB of decoded Float32Arrays. Newest-first via publishedAt
+		// keeps recent content in the scoring set if we ever exceed the cap.
+		const MAX_CANDIDATES = 5000
 
+		if (q.length >= 3 && ai) {
+			let queryVec: Float32Array | null = null
+			try {
+				queryVec = await compute(ai, q)
+			} catch (error) {
+				console.warn('[Search] AI compute failed, falling back to keyword:', {
+					q,
+					errorName: (error as Error)?.constructor?.name,
+					errorMessage: (error as Error)?.message,
+				})
+			}
+
+			if (queryVec) {
 				// Candidate set: only posts that have an embedding, with all filters applied
 				const filterConditions = [
 					isNotNull(posts.embedding),
@@ -254,53 +268,49 @@ postsRoute.get(
 					})
 					.from(posts)
 					.where(and(...filterConditions))
+					.orderBy(desc(posts.publishedAt))
+					.limit(MAX_CANDIDATES)
 
-				if (candidates.length > 0) {
-					const decoded = candidates.map((row) => ({
-						id: row.id,
-						vec: decodeEmbedding(row.embedding as Uint8Array),
-					}))
-					const ranked = rankCandidates(queryVec, decoded)
+				const decoded = candidates.map((row) => ({
+					id: row.id,
+					vec: decodeEmbedding(row.embedding as Uint8Array),
+				}))
+				const ranked = rankCandidates(queryVec, decoded)
 
-					const offset = cursor ? decodeOffsetCursor(cursor) : 0
-					const page = ranked.slice(offset, offset + limit + 1)
-					const hasMore = page.length > limit
-					const pageIds = page.slice(0, limit).map((r) => r.id)
+				const offset = cursor ? decodeOffsetCursor(cursor) : 0
+				const page = ranked.slice(offset, offset + limit + 1)
+				const hasMore = page.length > limit
+				const pageIds = page.slice(0, limit).map((r) => r.id)
 
-					if (pageIds.length === 0) {
-						return c.json(
-							buildSearchResponse([], limit, q, 'semantic', {
-								hasMore: false,
-								nextCursor: null,
-							}),
-						)
-					}
-
-					// Fetch full details, preserving rank order
-					const postRows = await db.query.posts.findMany({
-						where: inArray(posts.id, pageIds),
-						with: { feed: { with: { author: true } } },
-					})
-					const byId = new Map(postRows.map((p) => [p.id, p]))
-					const ordered = pageIds
-						.map((id) => byId.get(id))
-						.filter((p): p is (typeof postRows)[number] => p !== undefined)
-						.map((post) => ({
-							...post,
-							topics: topicsToArray(post.mainTopic, post.subTopic),
-						}))
-
+				if (pageIds.length === 0) {
 					return c.json(
-						buildSearchResponse(ordered, limit, q, 'semantic', {
-							hasMore,
-							nextCursor: hasMore ? encodeOffsetCursor(offset + limit) : null,
+						buildSearchResponse([], limit, q, 'semantic', {
+							hasMore: false,
+							nextCursor: null,
 						}),
 					)
 				}
-				// Empty candidate set falls through to keyword path
-			} catch (error) {
-				console.warn('[Search] semantic path failed, falling back to keyword:', error)
-				// Fall through to keyword path
+
+				// Fetch full details, preserving rank order
+				const postRows = await db.query.posts.findMany({
+					where: inArray(posts.id, pageIds),
+					with: { feed: { with: { author: true } } },
+				})
+				const byId = new Map(postRows.map((p) => [p.id, p]))
+				const ordered = pageIds
+					.map((id) => byId.get(id))
+					.filter((p): p is (typeof postRows)[number] => p !== undefined)
+					.map((post) => ({
+						...post,
+						topics: topicsToArray(post.mainTopic, post.subTopic),
+					}))
+
+				return c.json(
+					buildSearchResponse(ordered, limit, q, 'semantic', {
+						hasMore,
+						nextCursor: hasMore ? encodeOffsetCursor(offset + limit) : null,
+					}),
+				)
 			}
 		}
 
@@ -311,7 +321,12 @@ postsRoute.get(
 			: undefined
 		const conditions = [
 			or(like(posts.title, searchTerm), like(posts.summary, searchTerm)),
-			cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined,
+			(() => {
+				if (!cursor) return undefined
+				const date = new Date(cursor)
+				if (Number.isNaN(date.getTime())) return undefined
+				return lt(posts.publishedAt, date)
+			})(),
 			techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined,
 			officialFeedIds ? buildFeedIdCondition(officialFeedIds, true) : undefined,
 			topicCondition,
