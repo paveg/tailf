@@ -181,6 +181,9 @@ function PostListContent({ allPosts }: PostListContentProps) {
 		? (searchQueryResult.data?.pages.flatMap((page) => page.data) ?? [])
 		: visiblePosts
 
+	// Latest search page may carry meta.mode; show a label when semantic.
+	const searchMode = isSearching ? searchQueryResult.data?.pages[0]?.meta?.mode : undefined
+
 	// API取得中はローディング表示、SSGデータがある場合はそのまま表示
 	const isInitialLoading = useClientFetch && activeQuery.isLoading
 	const showSearchLoading = isSearching && searchQueryResult.isLoading
@@ -311,6 +314,11 @@ function PostListContent({ allPosts }: PostListContentProps) {
 				<div className="py-8 text-center text-muted-foreground">
 					{isSearching ? '検索結果がありません' : 'まだ記事がありません'}
 				</div>
+			)}
+
+			{/* Semantic search mode indicator */}
+			{searchMode === 'semantic' && displayPosts.length > 0 && (
+				<p className="text-sm text-muted-foreground">意味的に近い順</p>
 			)}
 
 			{/* Posts Grid */}

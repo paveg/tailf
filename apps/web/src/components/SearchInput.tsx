@@ -12,7 +12,7 @@ interface SearchInputProps {
 export function SearchInput({
 	value,
 	onChange,
-	placeholder = '記事を検索...',
+	placeholder = '自然な日本語で検索…（例: React フックの落とし穴）',
 	isLoading,
 }: SearchInputProps) {
 	return (

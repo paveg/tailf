@@ -89,6 +89,9 @@ export async function logout(): Promise<void> {
 export interface CursorMeta {
 	nextCursor: string | null
 	hasMore: boolean
+	// Search-only — present on /posts/search responses, undefined elsewhere.
+	query?: string
+	mode?: 'semantic' | 'keyword'
 }
 
 export interface CursorResponse<T> {

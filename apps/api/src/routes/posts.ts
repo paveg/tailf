@@ -7,18 +7,20 @@ import {
 	gt,
 	gte,
 	inArray,
+	isNotNull,
 	like,
 	lt,
 	notInArray,
 	or,
 	type SQL,
-	sql,
 } from 'drizzle-orm'
 import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { compute, decodeEmbedding, toEmbeddingBytes } from '../services/embedding'
+import { decodeOffsetCursor, encodeOffsetCursor, rankCandidates } from '../services/semantic-search'
 import { topicsToArray } from '../services/topic-assignment'
 import { D1_MAX_VARIABLES, TECH_SCORE_THRESHOLD } from '../utils/constants'
 import { parsePopularCursor } from '../utils/cursor'
@@ -177,51 +179,38 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 	return c.json(buildCursorResponse(postsWithTopics, limit, sort))
 })
 
-// Minimum query length for FTS5 trigram search (3 characters required)
-const FTS5_MIN_QUERY_LENGTH = 3
-
 /**
- * Build search response with query in meta
+ * Build search response with query and mode in meta.
+ * The semantic path passes overrideCursor because it computes hasMore/nextCursor
+ * from offset slicing rather than from the publishedAt of the last result.
  */
 function buildSearchResponse<T extends { publishedAt: Date }>(
 	results: T[],
 	limit: number,
 	query: string,
-): ReturnType<typeof buildCursorResponse<T>> & { meta: { query: string } } {
+	mode: 'semantic' | 'keyword',
+	overrideCursor?: { hasMore: boolean; nextCursor: string | null },
+): ReturnType<typeof buildCursorResponse<T>> & {
+	meta: { query: string; mode: 'semantic' | 'keyword' }
+} {
+	if (overrideCursor) {
+		return {
+			data: results,
+			meta: {
+				hasMore: overrideCursor.hasMore,
+				nextCursor: overrideCursor.nextCursor,
+				query,
+				mode,
+			},
+		}
+	}
 	const response = buildCursorResponse(results, limit)
 	return {
 		...response,
-		meta: { ...response.meta, query },
+		meta: { ...response.meta, query, mode },
 	}
 }
 
-/**
- * Build SQL condition for official feed IDs in raw SQL context
- * Uses chunked OR for large arrays
- */
-function buildOfficialSqlCondition(feedIds: string[]): ReturnType<typeof sql> {
-	if (feedIds.length <= D1_MAX_VARIABLES) {
-		return sql`AND p.feed_id IN (${sql.join(
-			feedIds.map((v) => sql`${v}`),
-			sql`, `,
-		)})`
-	}
-
-	// For large arrays, chunk and combine with OR
-	const chunks: ReturnType<typeof sql>[] = []
-	for (let i = 0; i < feedIds.length; i += D1_MAX_VARIABLES) {
-		const chunk = feedIds.slice(i, i + D1_MAX_VARIABLES)
-		chunks.push(
-			sql`p.feed_id IN (${sql.join(
-				chunk.map((v) => sql`${v}`),
-				sql`, `,
-			)})`,
-		)
-	}
-	return sql`AND (${sql.join(chunks, sql` OR `)})`
-}
-
-// Search posts - cursor-based pagination using FTS5 (with LIKE fallback for short queries)
 postsRoute.get(
 	'/search',
 	vValidator(
@@ -234,66 +223,110 @@ postsRoute.get(
 	async (c) => {
 		const { q, cursor, limit, techOnly, official, topic } = c.req.valid('query')
 		const db = c.get('db')
+		const ai = c.env.AI
 
-		// Official filter - resolve feed IDs upfront
+		// Resolve official-feed filter once
 		let officialFeedIds: string[] | undefined
 		if (official !== undefined) {
 			officialFeedIds = await getOfficialFeedIds(db, official)
 			if (officialFeedIds.length === 0) {
-				return c.json(buildSearchResponse([], limit, q))
+				return c.json(buildSearchResponse([], limit, q, 'semantic'))
 			}
 		}
 
-		// Use FTS5 for queries with 3+ characters, LIKE for shorter ones
-		const useFts = q.length >= FTS5_MIN_QUERY_LENGTH
+		// Semantic path requires a long-enough query AND a working AI binding.
+		// MAX_CANDIDATES bounds memory: ~4 KB embedding × 5000 = ~20 MB BLOB plus
+		// another ~20 MB of decoded Float32Arrays. Newest-first via publishedAt
+		// keeps recent content in the scoring set if we ever exceed the cap.
+		const MAX_CANDIDATES = 5000
 
-		if (useFts) {
-			const cursorCondition = cursor
-				? sql`AND p.published_at < ${new Date(cursor).getTime()}`
-				: sql``
-			const techCondition = techOnly ? sql`AND p.tech_score >= ${TECH_SCORE_THRESHOLD}` : sql``
-			const officialCondition = officialFeedIds ? buildOfficialSqlCondition(officialFeedIds) : sql``
-			const topicCondition = topic
-				? sql`AND (p.main_topic = ${topic} OR p.sub_topic = ${topic})`
-				: sql``
-
-			const ftsResult = await db.all<{ id: string }>(sql`
-				SELECT p.id FROM posts p
-				JOIN posts_fts ON p.rowid = posts_fts.rowid
-				WHERE posts_fts MATCH ${q}
-				${cursorCondition}
-				${techCondition}
-				${officialCondition}
-				${topicCondition}
-				ORDER BY p.published_at DESC
-				LIMIT ${limit + 1}
-			`)
-
-			const matchedIds = ftsResult.map((r) => r.id)
-			if (matchedIds.length === 0) {
-				return c.json(buildSearchResponse([], limit, q))
+		if (q.length >= 3 && ai) {
+			let queryVec: Float32Array | null = null
+			try {
+				queryVec = await compute(ai, q)
+			} catch (error) {
+				console.warn('[Search] AI compute failed, falling back to keyword:', {
+					q,
+					errorName: (error as Error)?.constructor?.name,
+					errorMessage: (error as Error)?.message,
+				})
 			}
 
-			const result = await db.query.posts.findMany({
-				where: inArray(posts.id, matchedIds),
-				orderBy: [desc(posts.publishedAt)],
-				with: { feed: { with: { author: true } } },
-			})
-			const postsWithTopics = result.map((post) => ({
-				...post,
-				topics: topicsToArray(post.mainTopic, post.subTopic),
-			}))
-			return c.json(buildSearchResponse(postsWithTopics, limit, q))
+			if (queryVec) {
+				// Candidate set: only posts that have an embedding, with all filters applied
+				const filterConditions = [
+					isNotNull(posts.embedding),
+					techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined,
+					officialFeedIds ? buildFeedIdCondition(officialFeedIds, true) : undefined,
+					topic ? or(eq(posts.mainTopic, topic), eq(posts.subTopic, topic)) : undefined,
+				].filter((x): x is SQL => x !== undefined)
+
+				const candidates = await db
+					.select({
+						id: posts.id,
+						embedding: posts.embedding,
+					})
+					.from(posts)
+					.where(and(...filterConditions))
+					.orderBy(desc(posts.publishedAt))
+					.limit(MAX_CANDIDATES)
+
+				const decoded = candidates.map((row) => ({
+					id: row.id,
+					vec: decodeEmbedding(toEmbeddingBytes(row.embedding)),
+				}))
+				const ranked = rankCandidates(queryVec, decoded)
+
+				const offset = cursor ? decodeOffsetCursor(cursor) : 0
+				const page = ranked.slice(offset, offset + limit + 1)
+				const hasMore = page.length > limit
+				const pageIds = page.slice(0, limit).map((r) => r.id)
+
+				if (pageIds.length === 0) {
+					return c.json(
+						buildSearchResponse([], limit, q, 'semantic', {
+							hasMore: false,
+							nextCursor: null,
+						}),
+					)
+				}
+
+				// Fetch full details, preserving rank order
+				const postRows = await db.query.posts.findMany({
+					where: inArray(posts.id, pageIds),
+					with: { feed: { with: { author: true } } },
+				})
+				const byId = new Map(postRows.map((p) => [p.id, p]))
+				const ordered = pageIds
+					.map((id) => byId.get(id))
+					.filter((p): p is (typeof postRows)[number] => p !== undefined)
+					.map((post) => ({
+						...post,
+						topics: topicsToArray(post.mainTopic, post.subTopic),
+					}))
+
+				return c.json(
+					buildSearchResponse(ordered, limit, q, 'semantic', {
+						hasMore,
+						nextCursor: hasMore ? encodeOffsetCursor(offset + limit) : null,
+					}),
+				)
+			}
 		}
 
-		// LIKE fallback for short queries (< 3 chars)
+		// Keyword LIKE fallback (also used for q.length < 3)
 		const searchTerm = `%${q}%`
 		const topicCondition = topic
 			? or(eq(posts.mainTopic, topic), eq(posts.subTopic, topic))
 			: undefined
 		const conditions = [
 			or(like(posts.title, searchTerm), like(posts.summary, searchTerm)),
-			cursor ? lt(posts.publishedAt, new Date(cursor)) : undefined,
+			(() => {
+				if (!cursor) return undefined
+				const date = new Date(cursor)
+				if (Number.isNaN(date.getTime())) return undefined
+				return lt(posts.publishedAt, date)
+			})(),
 			techOnly ? gte(posts.techScore, TECH_SCORE_THRESHOLD) : undefined,
 			officialFeedIds ? buildFeedIdCondition(officialFeedIds, true) : undefined,
 			topicCondition,
@@ -309,7 +342,7 @@ postsRoute.get(
 			...post,
 			topics: topicsToArray(post.mainTopic, post.subTopic),
 		}))
-		return c.json(buildSearchResponse(postsWithTopics, limit, q))
+		return c.json(buildSearchResponse(postsWithTopics, limit, q, 'keyword'))
 	},
 )
 
