@@ -3,8 +3,9 @@ import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
+import { encodeEmbedding } from './embedding'
 import { safeFetchExternal } from './safe-fetch'
-import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
+import { calculateTechScore, embedAndScoreBatch } from './tech-score'
 import { assignTopics } from './topic-assignment'
 
 interface RssItem {
@@ -281,6 +282,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		techScore: number
 		mainTopic: string | null
 		subTopic: string | null
+		embedding: Uint8Array | null
 	}> = []
 	// Collect feed description updates
 	const feedDescriptionUpdates: Array<{ id: string; description: string }> = []
@@ -355,6 +357,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 					techScore: keywordScore,
 					mainTopic,
 					subTopic,
+					embedding: null,
 				})
 
 				// Mark URL as existing to avoid duplicates within this run
@@ -399,30 +402,33 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 	console.log('RSS feed fetch complete.')
 
-	// Batch calculate embedding-based tech scores for new posts
+	// Batch compute embeddings AND tech scores in one AI call,
+	// then persist both to each post.
 	if (ai && postsToInsert.length > 0) {
-		console.log(`[TechScore] Batch calculating embeddings for ${postsToInsert.length} new posts...`)
+		console.log(`[Embed] Batch embedding ${postsToInsert.length} new posts...`)
 		try {
 			const postsForScoring = postsToInsert.map((p) => ({
-				id: p.id,
 				title: p.title,
 				summary: p.summary ?? undefined,
 			}))
-			const scores = await calculateTechScoresBatch(ai, postsForScoring)
+			const results = await embedAndScoreBatch(ai, postsForScoring)
 
-			// Batch update scores (chunks of 50)
-			for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
-				const chunk = postsToInsert.slice(i, i + BATCH_SIZE)
-				for (let j = 0; j < chunk.length; j++) {
-					await db
-						.update(posts)
-						.set({ techScore: scores[i + j] })
-						.where(eq(posts.id, chunk[j].id))
+			for (let i = 0; i < postsToInsert.length; i++) {
+				const result = results[i]
+				const update: { techScore: number; embedding?: Uint8Array } = {
+					techScore: result.techScore,
 				}
+				if (result.embedding) {
+					update.embedding = encodeEmbedding(result.embedding)
+				}
+				await db.update(posts).set(update).where(eq(posts.id, postsToInsert[i].id))
 			}
-			console.log(`[TechScore] Updated ${postsToInsert.length} posts with embedding scores`)
+			const withEmbedding = results.filter((r) => r.embedding).length
+			console.log(
+				`[Embed] Updated ${postsToInsert.length} posts (${withEmbedding} with embeddings)`,
+			)
 		} catch (error) {
-			console.warn('[TechScore] Batch embedding failed, keeping keyword scores:', error)
+			console.warn('[Embed] embedAndScoreBatch failed, keeping keyword scores:', error)
 		}
 	}
 
