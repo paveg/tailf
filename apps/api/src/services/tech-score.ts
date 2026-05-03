@@ -3,6 +3,7 @@
  * Keyword-based scoring (0.0 - 1.0)
  */
 import { cleanTextForScoring, decodeHtmlEntities } from '../utils/html'
+import { compute, computeBatch } from './embedding'
 
 // High confidence tech keywords (weight: 0.3 each, max 3 matches = 0.9)
 const HIGH_WEIGHT_KEYWORDS = [
@@ -523,13 +524,13 @@ async function getAnchorEmbeddings(ai: Ai): Promise<{ tech: number[][]; nonTech:
 		return { tech: techAnchorEmbeddings, nonTech: nonTechAnchorEmbeddings }
 	}
 
-	const [techResult, nonTechResult] = await Promise.all([
-		ai.run('@cf/baai/bge-m3', { text: TECH_ANCHOR_PHRASES }),
-		ai.run('@cf/baai/bge-m3', { text: NON_TECH_ANCHOR_PHRASES }),
+	const [tech, nonTech] = await Promise.all([
+		computeBatch(ai, TECH_ANCHOR_PHRASES),
+		computeBatch(ai, NON_TECH_ANCHOR_PHRASES),
 	])
 
-	techAnchorEmbeddings = techResult.data
-	nonTechAnchorEmbeddings = nonTechResult.data
+	techAnchorEmbeddings = tech.map((v) => Array.from(v))
+	nonTechAnchorEmbeddings = nonTech.map((v) => Array.from(v))
 
 	return { tech: techAnchorEmbeddings, nonTech: nonTechAnchorEmbeddings }
 }
@@ -578,13 +579,10 @@ export async function calculateTechScoreWithEmbedding(
 
 	try {
 		// Get embeddings
-		const [inputResult, anchors] = await Promise.all([
-			ai.run('@cf/baai/bge-m3', { text: [text] }),
-			getAnchorEmbeddings(ai),
-		])
+		const [inputVec, anchors] = await Promise.all([compute(ai, text), getAnchorEmbeddings(ai)])
 
 		const embeddingScore = calculateEmbeddingScore(
-			inputResult.data[0],
+			Array.from(inputVec),
 			anchors.tech,
 			anchors.nonTech,
 		)
@@ -632,14 +630,18 @@ export async function calculateTechScoresBatch(
 
 	try {
 		// Get embeddings for all texts in one API call
-		const [inputResult, anchors] = await Promise.all([
-			ai.run('@cf/baai/bge-m3', { text: texts }),
+		const [inputVecs, anchors] = await Promise.all([
+			computeBatch(ai, texts),
 			getAnchorEmbeddings(ai),
 		])
 
 		// Calculate hybrid scores for each post
-		return inputResult.data.map((inputEmbedding: number[], index: number) => {
-			const embeddingScore = calculateEmbeddingScore(inputEmbedding, anchors.tech, anchors.nonTech)
+		return inputVecs.map((inputVec, index) => {
+			const embeddingScore = calculateEmbeddingScore(
+				Array.from(inputVec),
+				anchors.tech,
+				anchors.nonTech,
+			)
 			const keywordScore = keywordScores[index]
 
 			// Hybrid score: combine keyword and embedding scores
