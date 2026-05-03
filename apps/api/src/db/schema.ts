@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { blob, index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // Users table
 export const users = sqliteTable('users', {
@@ -73,6 +73,9 @@ export const posts = sqliteTable(
 		// Topic assignment (auto-assigned via keyword matching)
 		mainTopic: text('main_topic'), // Primary topic (highest keyword score)
 		subTopic: text('sub_topic'), // Secondary topic (second highest score, optional)
+		// L2-normalized BGE-M3 (1024-dim float32) packed as little-endian bytes.
+		// NULL until backfilled (see PR #2). 4096 bytes per row.
+		embedding: blob('embedding'),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date()),

@@ -7,8 +7,9 @@ import type { Env } from '..'
 import type { Database } from '../db'
 import { feedBookmarks, feeds, posts } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { encodeEmbedding } from '../services/embedding'
 import { fetchAndParseFeed } from '../services/rss'
-import { calculateTechScoresBatch } from '../services/tech-score'
+import { embedAndScoreBatch } from '../services/tech-score'
 import { generateId } from '../utils/id'
 import { detectFeedType, normalizeUrl } from '../utils/url'
 
@@ -199,7 +200,7 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 			.filter((item) => item.title && item.link)
 			.slice(0, MAX_ITEMS_PER_REGISTRATION)
 
-		const scores = await calculateTechScoresBatch(
+		const results = await embedAndScoreBatch(
 			c.env.AI,
 			filteredItems.map((item) => ({
 				title: item.title,
@@ -210,7 +211,7 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 		let importedCount = 0
 		for (let i = 0; i < filteredItems.length; i++) {
 			const item = filteredItems[i]
-			const techScore = scores[i]
+			const { techScore, embedding } = results[i]
 			try {
 				const summary = item.description?.slice(0, 500)
 				await db
@@ -224,6 +225,7 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 						publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
 						feedId,
 						techScore,
+						embedding: embedding ? encodeEmbedding(embedding) : null,
 					})
 					.onConflictDoNothing()
 				importedCount++

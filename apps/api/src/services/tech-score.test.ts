@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateTechScore, isTechPost } from './tech-score'
+import { calculateTechScore, embedAndScoreBatch, isTechPost } from './tech-score'
 
 describe('calculateTechScore', () => {
 	describe('high weight keywords', () => {
@@ -178,5 +178,53 @@ describe('isTechPost', () => {
 	it('considers summary in tech detection', () => {
 		expect(isTechPost('ブログ始めました', 'TypeScript React Next.js開発')).toBe(true)
 		expect(isTechPost('ブログ始めました', 'カフェでランチした')).toBe(false)
+	})
+})
+
+describe('embedAndScoreBatch', () => {
+	it('returns one entry per input post', async () => {
+		const fakeAi = {
+			run: async (_model: string, input: { text: string[] }) => ({
+				data: input.text.map(() => new Array(1024).fill(0.01)),
+			}),
+		} as unknown as Ai
+
+		const result = await embedAndScoreBatch(fakeAi, [
+			{ title: 'TypeScript入門', summary: 'A guide' },
+			{ title: 'カフェ巡り', summary: undefined },
+		])
+		expect(result).toHaveLength(2)
+		expect(result[0].embedding).toBeInstanceOf(Float32Array)
+		expect(result[0].embedding?.length).toBe(1024)
+		expect(typeof result[0].techScore).toBe('number')
+		expect(result[0].techScore).toBeGreaterThanOrEqual(0)
+		expect(result[0].techScore).toBeLessThanOrEqual(1)
+	})
+
+	it('returns keyword-only scores and null embeddings when AI is undefined', async () => {
+		const result = await embedAndScoreBatch(undefined, [
+			{ title: 'TypeScript入門', summary: undefined },
+		])
+		expect(result).toHaveLength(1)
+		expect(result[0].embedding).toBeNull()
+		expect(result[0].techScore).toBeGreaterThanOrEqual(0.3)
+	})
+
+	it('returns keyword scores and null embeddings when AI throws', async () => {
+		const failingAi = {
+			run: async () => {
+				throw new Error('boom')
+			},
+		} as unknown as Ai
+		const result = await embedAndScoreBatch(failingAi, [
+			{ title: 'TypeScript入門', summary: undefined },
+		])
+		expect(result[0].embedding).toBeNull()
+		expect(result[0].techScore).toBeGreaterThanOrEqual(0.3)
+	})
+
+	it('returns [] for empty input', async () => {
+		const result = await embedAndScoreBatch(undefined, [])
+		expect(result).toEqual([])
 	})
 })

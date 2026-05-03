@@ -3,8 +3,9 @@ import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
 import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
+import { encodeEmbedding } from './embedding'
 import { safeFetchExternal } from './safe-fetch'
-import { calculateTechScore, calculateTechScoresBatch } from './tech-score'
+import { calculateTechScore, embedAndScoreBatch } from './tech-score'
 import { assignTopics } from './topic-assignment'
 
 interface RssItem {
@@ -281,6 +282,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		techScore: number
 		mainTopic: string | null
 		subTopic: string | null
+		embedding: Uint8Array | null
 	}> = []
 	// Collect feed description updates
 	const feedDescriptionUpdates: Array<{ id: string; description: string }> = []
@@ -355,6 +357,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 					techScore: keywordScore,
 					mainTopic,
 					subTopic,
+					embedding: null,
 				})
 
 				// Mark URL as existing to avoid duplicates within this run
@@ -368,6 +371,26 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		} catch (error) {
 			console.error(`Error processing ${feed.feedUrl}:`, error)
 		}
+	}
+
+	// Compute embeddings + tech scores for the batch BEFORE insert so the
+	// final values are written in the same INSERT (no per-post UPDATE pass).
+	// AI failures fall back to keyword-only scores; embedding stays null.
+	if (ai && postsToInsert.length > 0) {
+		console.log(`[Embed] Batch embedding ${postsToInsert.length} new posts...`)
+		const results = await embedAndScoreBatch(
+			ai,
+			postsToInsert.map((p) => ({ title: p.title, summary: p.summary ?? undefined })),
+		)
+		for (let i = 0; i < postsToInsert.length; i++) {
+			const result = results[i]
+			postsToInsert[i].techScore = result.techScore
+			if (result.embedding) {
+				postsToInsert[i].embedding = encodeEmbedding(result.embedding)
+			}
+		}
+		const withEmbedding = postsToInsert.filter((p) => p.embedding).length
+		console.log(`[Embed] Prepared ${postsToInsert.length} posts (${withEmbedding} with embeddings)`)
 	}
 
 	// Batch insert new posts (chunks of 5 to stay within D1 variable limits)
@@ -398,33 +421,6 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	}
 
 	console.log('RSS feed fetch complete.')
-
-	// Batch calculate embedding-based tech scores for new posts
-	if (ai && postsToInsert.length > 0) {
-		console.log(`[TechScore] Batch calculating embeddings for ${postsToInsert.length} new posts...`)
-		try {
-			const postsForScoring = postsToInsert.map((p) => ({
-				id: p.id,
-				title: p.title,
-				summary: p.summary ?? undefined,
-			}))
-			const scores = await calculateTechScoresBatch(ai, postsForScoring)
-
-			// Batch update scores (chunks of 50)
-			for (let i = 0; i < postsToInsert.length; i += BATCH_SIZE) {
-				const chunk = postsToInsert.slice(i, i + BATCH_SIZE)
-				for (let j = 0; j < chunk.length; j++) {
-					await db
-						.update(posts)
-						.set({ techScore: scores[i + j] })
-						.where(eq(posts.id, chunk[j].id))
-				}
-			}
-			console.log(`[TechScore] Updated ${postsToInsert.length} posts with embedding scores`)
-		} catch (error) {
-			console.warn('[TechScore] Batch embedding failed, keeping keyword scores:', error)
-		}
-	}
 
 	// Fetch OGP images for posts without thumbnails (limit to avoid subrequest issues)
 	const postsToFetchOgp = postsWithoutThumbnails.slice(0, OGP_FETCH_LIMIT)
