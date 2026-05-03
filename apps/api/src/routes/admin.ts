@@ -1,7 +1,7 @@
 /**
  * Admin routes (protected by ADMIN_SECRET)
  */
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { Env } from '..'
 import type { Database } from '../db'
@@ -404,5 +404,25 @@ adminRoute.post('/posts/rescore', async (c) => {
 		limitApplied: limit,
 		examples: examples.length > 0 ? examples : undefined,
 		errors: errors.length > 0 ? errors : undefined,
+	})
+})
+
+// GET /admin/embeddings/status - Progress of the embedding backfill
+adminRoute.get('/embeddings/status', async (c) => {
+	const db = c.get('db')
+
+	const rows = await db
+		.select({
+			total: sql<number>`COUNT(*)`,
+			withEmbedding: sql<number>`SUM(CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END)`,
+		})
+		.from(posts)
+
+	const total = Number(rows[0]?.total ?? 0)
+	const withEmbedding = Number(rows[0]?.withEmbedding ?? 0)
+	const percent = total === 0 ? 100 : Math.round((withEmbedding / total) * 1000) / 10
+
+	return c.json({
+		data: { total, withEmbedding, percent },
 	})
 })
