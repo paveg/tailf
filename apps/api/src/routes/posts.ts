@@ -19,7 +19,7 @@ import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
-import { compute, decodeEmbedding } from '../services/embedding'
+import { compute, decodeEmbedding, toEmbeddingBytes } from '../services/embedding'
 import { decodeOffsetCursor, encodeOffsetCursor, rankCandidates } from '../services/semantic-search'
 import { topicsToArray } from '../services/topic-assignment'
 import { D1_MAX_VARIABLES, TECH_SCORE_THRESHOLD } from '../utils/constants'
@@ -273,7 +273,7 @@ postsRoute.get(
 
 				const decoded = candidates.map((row) => ({
 					id: row.id,
-					vec: decodeEmbedding(row.embedding as Uint8Array),
+					vec: decodeEmbedding(toEmbeddingBytes(row.embedding)),
 				}))
 				const ranked = rankCandidates(queryVec, decoded)
 

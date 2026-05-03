@@ -42,6 +42,38 @@ export function encodeEmbedding(v: Float32Array): Uint8Array {
 	return out
 }
 
+/**
+ * Coerce a D1 BLOB column return value into a Uint8Array.
+ *
+ * Drizzle's `blob()` column hands back whatever `better-sqlite3` /
+ * miniflare's D1 driver returned for that row. In practice the shape
+ * varies by environment:
+ * - miniflare local D1 returns a plain `Array<number>` (one byte per
+ *   element). `instanceof Uint8Array` is false and `.byteLength` is
+ *   undefined, which makes the naive `as Uint8Array` cast crash
+ *   `decodeEmbedding`.
+ * - Other drivers may hand back a real `Uint8Array`, an `ArrayBuffer`,
+ *   or a `{ type: 'Buffer', data: number[] }` JSON-serialized Buffer.
+ *
+ * Normalize all of these to a real `Uint8Array` before decoding.
+ */
+export function toEmbeddingBytes(value: unknown): Uint8Array {
+	if (value instanceof Uint8Array) return value
+	if (value instanceof ArrayBuffer) return new Uint8Array(value)
+	if (Array.isArray(value)) return new Uint8Array(value)
+	if (
+		value !== null &&
+		typeof value === 'object' &&
+		'data' in value &&
+		Array.isArray((value as { data: unknown }).data)
+	) {
+		return new Uint8Array((value as { data: number[] }).data)
+	}
+	throw new Error(
+		`toEmbeddingBytes: cannot coerce ${Object.prototype.toString.call(value)} to Uint8Array`,
+	)
+}
+
 export function decodeEmbedding(blob: Uint8Array): Float32Array {
 	const expectedBytes = EMBEDDING_DIM * 4
 	if (blob.byteLength !== expectedBytes) {
