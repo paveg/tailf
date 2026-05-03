@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import type { Env } from '..'
 import type { Database } from '../db'
 import { posts } from '../db/schema'
+import { computeBatch, encodeEmbedding } from '../services/embedding'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
 import { fetchOgImage, parseFeed } from '../services/rss'
@@ -424,5 +425,77 @@ adminRoute.get('/embeddings/status', async (c) => {
 
 	return c.json({
 		data: { total, withEmbedding, percent },
+	})
+})
+
+// POST /admin/embeddings/backfill - Compute embeddings for posts that don't have one yet
+// Body: { batchSize?: number }   default 100, hard cap 200 (subrequest budget)
+//
+// Idempotent: re-running selects the next batch of NULL-embedding posts.
+// Returns { processed, remaining, durationMs, done }.
+adminRoute.post('/embeddings/backfill', async (c) => {
+	const db = c.get('db')
+	const ai = c.env.AI
+	if (!ai) {
+		return c.json({ error: 'AI binding not available' }, 503)
+	}
+
+	const DEFAULT_BATCH = 100
+	const MAX_BATCH = 200
+
+	const body = await c.req.json<{ batchSize?: number }>().catch(() => ({}))
+	const batchSize = Math.min(
+		Math.max(1, Number.isFinite(body.batchSize) ? Number(body.batchSize) : DEFAULT_BATCH),
+		MAX_BATCH,
+	)
+
+	const start = Date.now()
+
+	const candidates = await db.query.posts.findMany({
+		where: isNull(posts.embedding),
+		columns: { id: true, title: true, summary: true },
+		orderBy: (p, { desc }) => desc(p.publishedAt),
+		limit: batchSize,
+	})
+
+	if (candidates.length === 0) {
+		return c.json({
+			data: { processed: 0, remaining: 0, durationMs: Date.now() - start, done: true },
+		})
+	}
+
+	const texts = candidates.map((p) => `${p.title} ${p.summary ?? ''}`)
+
+	let processed = 0
+	const errors: string[] = []
+	try {
+		const vectors = await computeBatch(ai, texts)
+		for (let i = 0; i < candidates.length; i++) {
+			try {
+				const blob = encodeEmbedding(vectors[i])
+				await db.update(posts).set({ embedding: blob }).where(eq(posts.id, candidates[i].id))
+				processed++
+			} catch (e) {
+				errors.push(`${candidates[i].id}: ${e}`)
+			}
+		}
+	} catch (e) {
+		return c.json({ error: 'computeBatch failed', details: String(e) }, 500)
+	}
+
+	const remainingRows = await db
+		.select({ remaining: sql<number>`COUNT(*)` })
+		.from(posts)
+		.where(isNull(posts.embedding))
+	const remaining = Number(remainingRows[0]?.remaining ?? 0)
+
+	return c.json({
+		data: {
+			processed,
+			remaining,
+			durationMs: Date.now() - start,
+			done: remaining === 0,
+		},
+		errors: errors.length > 0 ? errors : undefined,
 	})
 })
