@@ -30,6 +30,12 @@ export function normalize(v: Float32Array): Float32Array {
 }
 
 export function encodeEmbedding(v: Float32Array): Uint8Array {
+	if (v.length !== EMBEDDING_DIM) {
+		throw new Error(
+			`encodeEmbedding: expected ${EMBEDDING_DIM} dims, got ${v.length}. ` +
+				`Refusing to persist malformed vector.`,
+		)
+	}
 	// Copy so we never accidentally hand callers a view into a larger buffer.
 	const out = new Uint8Array(v.byteLength)
 	out.set(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))
@@ -37,6 +43,13 @@ export function encodeEmbedding(v: Float32Array): Uint8Array {
 }
 
 export function decodeEmbedding(blob: Uint8Array): Float32Array {
+	const expectedBytes = EMBEDDING_DIM * 4
+	if (blob.byteLength !== expectedBytes) {
+		throw new Error(
+			`decodeEmbedding: expected ${expectedBytes} bytes, got ${blob.byteLength}. ` +
+				`Stored vector is malformed.`,
+		)
+	}
 	// D1 may return a Uint8Array view at a non-aligned byteOffset; copy
 	// into a fresh ArrayBuffer so Float32Array construction is always safe.
 	const out = new Float32Array(blob.byteLength / 4)
