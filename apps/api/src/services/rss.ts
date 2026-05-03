@@ -373,6 +373,26 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		}
 	}
 
+	// Compute embeddings + tech scores for the batch BEFORE insert so the
+	// final values are written in the same INSERT (no per-post UPDATE pass).
+	// AI failures fall back to keyword-only scores; embedding stays null.
+	if (ai && postsToInsert.length > 0) {
+		console.log(`[Embed] Batch embedding ${postsToInsert.length} new posts...`)
+		const results = await embedAndScoreBatch(
+			ai,
+			postsToInsert.map((p) => ({ title: p.title, summary: p.summary ?? undefined })),
+		)
+		for (let i = 0; i < postsToInsert.length; i++) {
+			const result = results[i]
+			postsToInsert[i].techScore = result.techScore
+			if (result.embedding) {
+				postsToInsert[i].embedding = encodeEmbedding(result.embedding)
+			}
+		}
+		const withEmbedding = postsToInsert.filter((p) => p.embedding).length
+		console.log(`[Embed] Prepared ${postsToInsert.length} posts (${withEmbedding} with embeddings)`)
+	}
+
 	// Batch insert new posts (chunks of 5 to stay within D1 variable limits)
 	// D1 has a limit of 100 bound parameters per query, and each post has ~10 columns
 	// 5 posts × 10 columns = 50 variables (safe margin under 100)
@@ -401,36 +421,6 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 	}
 
 	console.log('RSS feed fetch complete.')
-
-	// Batch compute embeddings AND tech scores in one AI call,
-	// then persist both to each post.
-	if (ai && postsToInsert.length > 0) {
-		console.log(`[Embed] Batch embedding ${postsToInsert.length} new posts...`)
-		try {
-			const postsForScoring = postsToInsert.map((p) => ({
-				title: p.title,
-				summary: p.summary ?? undefined,
-			}))
-			const results = await embedAndScoreBatch(ai, postsForScoring)
-
-			for (let i = 0; i < postsToInsert.length; i++) {
-				const result = results[i]
-				const update: { techScore: number; embedding?: Uint8Array } = {
-					techScore: result.techScore,
-				}
-				if (result.embedding) {
-					update.embedding = encodeEmbedding(result.embedding)
-				}
-				await db.update(posts).set(update).where(eq(posts.id, postsToInsert[i].id))
-			}
-			const withEmbedding = results.filter((r) => r.embedding).length
-			console.log(
-				`[Embed] Updated ${postsToInsert.length} posts (${withEmbedding} with embeddings)`,
-			)
-		} catch (error) {
-			console.warn('[Embed] embedAndScoreBatch failed, keeping keyword scores:', error)
-		}
-	}
 
 	// Fetch OGP images for posts without thumbnails (limit to avoid subrequest issues)
 	const postsToFetchOgp = postsWithoutThumbnails.slice(0, OGP_FETCH_LIMIT)
