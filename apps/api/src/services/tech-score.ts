@@ -654,3 +654,47 @@ export async function calculateTechScoresBatch(
 		return keywordScores
 	}
 }
+
+/**
+ * Compute embeddings AND tech scores for a batch of posts in a single pass.
+ * Returns the raw L2-normalized embedding alongside the score so callers can
+ * persist it. On AI failure or absence, embedding is null and the score
+ * falls back to keyword-only.
+ */
+export async function embedAndScoreBatch(
+	ai: Ai | undefined,
+	posts: Array<{ title: string; summary?: string }>,
+): Promise<Array<{ embedding: Float32Array | null; techScore: number }>> {
+	if (posts.length === 0) return []
+
+	const keywordScores = posts.map((p) => calculateTechScore(p.title, p.summary))
+
+	if (!ai) {
+		return keywordScores.map((techScore) => ({ embedding: null, techScore }))
+	}
+
+	const texts = posts.map((p) => decodeHtmlEntities(`${p.title} ${p.summary || ''}`))
+
+	try {
+		const [inputVecs, anchors] = await Promise.all([
+			computeBatch(ai, texts),
+			getAnchorEmbeddings(ai),
+		])
+
+		return inputVecs.map((inputVec, index) => {
+			const embeddingScore = calculateEmbeddingScore(
+				Array.from(inputVec),
+				anchors.tech,
+				anchors.nonTech,
+			)
+			const hybridScore = keywordScores[index] * KEYWORD_WEIGHT + embeddingScore * EMBEDDING_WEIGHT
+			return {
+				embedding: inputVec,
+				techScore: Math.min(hybridScore, 1.0),
+			}
+		})
+	} catch (error) {
+		console.error('[TechScore] embedAndScoreBatch failed, keyword fallback:', error)
+		return keywordScores.map((techScore) => ({ embedding: null, techScore }))
+	}
+}
