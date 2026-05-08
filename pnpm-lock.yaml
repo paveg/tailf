@@ -28,7 +28,7 @@ importers:
     dependencies:
       '@hono/valibot-validator':
         specifier: ^0.5.0
-        version: 0.5.3(hono@4.11.4)(valibot@1.2.0(typescript@5.9.3))
+        version: 0.5.3(hono@4.12.16)(valibot@1.2.0(typescript@5.9.3))
       '@tailf/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -39,8 +39,8 @@ importers:
         specifier: ^4.5.0
         version: 4.5.3
       hono:
-        specifier: ^4.6.0
-        version: 4.11.4
+        specifier: ^4.12.16
+        version: 4.12.16
       valibot:
         specifier: ^1.0.0
         version: 1.2.0(typescript@5.9.3)
@@ -2601,6 +2601,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@vitejs/plugin-react@4.7.0':
     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
@@ -3441,8 +3442,8 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
-  hono@4.11.4:
-    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
+  hono@4.12.16:
+    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -6104,9 +6105,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@hono/valibot-validator@0.5.3(hono@4.11.4)(valibot@1.2.0(typescript@5.9.3))':
+  '@hono/valibot-validator@0.5.3(hono@4.12.16)(valibot@1.2.0(typescript@5.9.3))':
     dependencies:
-      hono: 4.11.4
+      hono: 4.12.16
       valibot: 1.2.0(typescript@5.9.3)
 
   '@img/colour@1.0.0': {}
@@ -8202,7 +8203,7 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
-  hono@4.11.4: {}
+  hono@4.12.16: {}
 
   html-escaper@3.0.3: {}
 
