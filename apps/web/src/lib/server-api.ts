@@ -2,15 +2,11 @@
  * Server-side API client for build-time data fetching
  * Used by Astro pages during SSG
  *
- * 現在の方式: 全件SSG
- * - ビルド時に全記事を取得してHTMLに埋め込む
- * - 実行時のAPIコール不要（検索以外）
- * - 記事数が増えてHTMLサイズが問題になったら、12件SSG + APIに切り替え可能
- *
- * 切り替え方法:
- * 1. fetchPostsForSSG({ limit: 12 }) を復活させる
- * 2. PostList.tsx を useInfinitePosts + initialData 方式に戻す
- * 3. hooks.ts の useInfinitePosts は initialData 対応済み
+ * 方式:
+ * - /posts は先頭1ページ (SSG_POSTS_PAGE_SIZE 件) のみビルド時に取得し、
+ *   PostList の初期データにする。以降のページ・フィルタ・検索はクライアントからAPIを叩く
+ * - トップ・トピックページは fetchAllPostsForSSG で全件を取得するが、
+ *   props には載せないのでHTMLサイズには影響しない
  *
  * 失敗時の挙動:
  * - PUBLIC_API_URL が設定されている (= 本番ビルド) 環境では fetch 失敗・空件数
@@ -50,6 +46,47 @@ function abortIfStrict(strict: boolean, message: string): never | undefined {
 	if (strict) throw new Error(message)
 	console.error(message)
 	return undefined
+}
+
+const SSG_POSTS_PAGE_SIZE = 12
+
+/**
+ * Fetch the first page of tech posts (server-side, for SSG)
+ * PostList seeds its default view (techOnly, recent, no filters) with this.
+ */
+export async function fetchFirstPostsPageForSSG(): Promise<CursorResponse<PostWithFeed[]>> {
+	const { url: baseUrl, strict } = getApiBaseUrl()
+	const url = `${baseUrl}/posts?limit=${SSG_POSTS_PAGE_SIZE}&techOnly=true`
+	const empty: CursorResponse<PostWithFeed[]> = {
+		data: [],
+		meta: { hasMore: false, nextCursor: null },
+	}
+
+	let response: Response
+	try {
+		response = await fetch(url)
+	} catch (error) {
+		abortIfStrict(
+			strict,
+			`[SSG] Network error fetching ${url}: ${error instanceof Error ? error.message : String(error)}`,
+		)
+		return empty
+	}
+
+	if (!response.ok) {
+		abortIfStrict(strict, `[SSG] Failed to fetch ${url}: ${response.status}`)
+		return empty
+	}
+
+	const result: CursorResponse<PostWithFeed[]> = await response.json()
+	console.log(`[SSG] Fetched first page: ${result.data.length} posts`)
+	if (strict && result.data.length === 0) {
+		throw new Error(
+			`[SSG] Aborting build: ${url} returned 0 posts. ` +
+				`Refusing to deploy SSG pages with empty data.`,
+		)
+	}
+	return result
 }
 
 /**

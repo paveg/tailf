@@ -1,22 +1,15 @@
 /**
  * 記事一覧コンポーネント
  *
- * 現在の方式: 全件SSG + クライアント側ページネーション
- * - allPosts: ビルド時に取得した全記事
- * - visibleCount: 表示件数（スクロールで増加）
- * - 検索のみAPIコール
- *
- * 開発環境ではSSGデータがない場合、クライアントサイドでAPIを叩く
- *
- * 12件SSG + API方式に切り替える場合:
- * - allPosts → initialData (CursorResponse型) に変更
- * - useInfinitePosts(12, techOnly, initialData) を使用
- * - visibleCount/filteredPosts のロジックを削除
+ * 12件SSG + API方式
+ * - initialPage: ビルド時に取得した先頭ページ。SSGの既定ビュー
+ *   (techOnly / 新着 / 全ソース / 全トピック) のときだけ初期データとして使う
+ * - 以降のページ・フィルタ変更・検索はAPIから取得
  */
 import { type PostWithFeed, TOPIC_IDS, type TopicId } from '@tailf/shared'
 import { Bookmark, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { SortOption } from '@/lib/api'
+import type { CursorResponse, SortOption } from '@/lib/api'
 import {
 	useCurrentUser,
 	useInfinitePosts,
@@ -36,18 +29,19 @@ import { Skeleton } from './ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
+// Must match the limit used by fetchFirstPostsPageForSSG so the query key lines up
 const POSTS_PER_PAGE = 12
 
 type SourceFilter = 'all' | 'personal' | 'official'
 const SOURCE_FILTERS = ['all', 'personal', 'official'] as const
 
 interface PostListContentProps {
-	allPosts: PostWithFeed[]
+	initialPage?: CursorResponse<PostWithFeed[]>
 }
 
 const SORT_OPTIONS = ['recent', 'popular'] as const
 
-function PostListContent({ allPosts }: PostListContentProps) {
+function PostListContent({ initialPage }: PostListContentProps) {
 	const [searchQuery, setSearchQuery] = useState('')
 	const [techOnly, setTechOnly] = useBooleanQueryParam('tech', true)
 	const [bookmarkOnly, setBookmarkOnly] = useBooleanQueryParam('bookmark', false)
@@ -57,80 +51,46 @@ function PostListContent({ allPosts }: PostListContentProps) {
 		'all',
 		...TOPIC_IDS,
 	])
-	const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE)
 	const debouncedQuery = useDebounce(searchQuery, 300)
 	const { data: user } = useCurrentUser()
 	const selectedTopic = topic === 'all' ? undefined : topic
 
 	const isSearching = debouncedQuery.length >= 2
 
-	// SSGデータがない場合（開発環境）はAPIから取得
-	const useClientFetch = allPosts.length === 0 || bookmarkOnly
 	// Convert source filter to API parameter: all=undefined, personal=false, official=true
 	const official = source === 'all' ? undefined : source === 'official'
-	const apiQuery = useInfinitePosts(12, techOnly, official, sort, undefined, selectedTopic)
+	// SSG built the default view only; seeding any other query key would show wrong data.
+	// An empty initialPage (lenient local build) is skipped so the client fetches instead.
+	const isSsgDefaultView =
+		techOnly && official === undefined && sort === 'recent' && !selectedTopic && !bookmarkOnly
+	const apiQuery = useInfinitePosts(
+		POSTS_PER_PAGE,
+		techOnly,
+		official,
+		sort,
+		undefined,
+		selectedTopic,
+		isSsgDefaultView && initialPage?.data.length ? initialPage : undefined,
+	)
 	// ブックマークフィルター用のクエリ
-	const bookmarkQuery = useInfiniteUserFeed(12, techOnly)
+	const bookmarkQuery = useInfiniteUserFeed(POSTS_PER_PAGE, techOnly)
 
 	// Search uses API (can't pre-build search results)
 	const searchQueryResult = useInfiniteSearchPosts(
 		debouncedQuery,
-		12,
+		POSTS_PER_PAGE,
 		techOnly,
 		official,
 		selectedTopic,
 	)
 
-	// APIから取得した記事
-	const apiPosts = useMemo(() => {
-		if (bookmarkOnly) {
-			return bookmarkQuery.data?.pages.flatMap((page) => page.data) ?? []
-		}
-		return apiQuery.data?.pages.flatMap((page) => page.data) ?? []
-	}, [apiQuery.data, bookmarkQuery.data, bookmarkOnly])
-
 	// 使用するクエリ（ブックマークモードかどうかで切り替え）
 	const activeQuery = bookmarkOnly ? bookmarkQuery : apiQuery
-
-	// 使用する記事データ（SSG or API）
-	const sourcePosts = useClientFetch ? apiPosts : allPosts
-
-	// Filter and sort posts client-side
-	// Note: user's own posts are excluded server-side via excludeAuthorId param
-	const filteredPosts = useMemo(() => {
-		let posts = sourcePosts
-
-		if (techOnly && !useClientFetch) {
-			// SSGの場合はクライアントでフィルタ
-			posts = posts.filter((post) => (post.techScore ?? 0) >= 0.3)
-		}
-		// SSGの場合はクライアントでトピックフィルタ
-		if (selectedTopic && !useClientFetch) {
-			posts = posts.filter((post) => post.topics?.includes(selectedTopic))
-		}
-		// SSGの場合はクライアントでソート
-		if (!useClientFetch && sort === 'popular') {
-			posts = [...posts].sort((a, b) => {
-				const aCount = a.hatenaBookmarkCount ?? 0
-				const bCount = b.hatenaBookmarkCount ?? 0
-				if (bCount !== aCount) return bCount - aCount
-				return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-			})
-		}
-		return posts
-	}, [sourcePosts, techOnly, useClientFetch, sort, selectedTopic])
-
-	// Visible posts (client-side pagination for SSG)
-	const visiblePosts = useMemo(() => {
-		if (useClientFetch) {
-			return filteredPosts // APIの場合は既にページネーション済み
-		}
-		return filteredPosts.slice(0, visibleCount)
-	}, [filteredPosts, visibleCount, useClientFetch])
-
-	const hasMore = useClientFetch
-		? (activeQuery.hasNextPage ?? false)
-		: visibleCount < filteredPosts.length
+	const listPosts = useMemo(
+		() => activeQuery.data?.pages.flatMap((page) => page.data) ?? [],
+		[activeQuery.data],
+	)
+	const hasMore = activeQuery.hasNextPage ?? false
 
 	const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
 		rootMargin: '200px',
@@ -140,17 +100,10 @@ function PostListContent({ allPosts }: PostListContentProps) {
 	useEffect(() => {
 		if (isSearching) return
 		if (!isIntersecting || !hasMore) return
-
-		if (useClientFetch) {
-			// API経由の場合
-			if (!activeQuery.isFetchingNextPage) {
-				activeQuery.fetchNextPage()
-			}
-		} else {
-			// SSGの場合
-			setVisibleCount((prev) => prev + POSTS_PER_PAGE)
+		if (!activeQuery.isFetchingNextPage) {
+			activeQuery.fetchNextPage()
 		}
-	}, [isIntersecting, hasMore, isSearching, useClientFetch, activeQuery])
+	}, [isIntersecting, hasMore, isSearching, activeQuery])
 
 	// Load more for search results
 	useEffect(() => {
@@ -170,26 +123,19 @@ function PostListContent({ allPosts }: PostListContentProps) {
 		searchQueryResult.fetchNextPage,
 	])
 
-	// Reset visible count when filter/sort changes
-	// biome-ignore lint/correctness/useExhaustiveDependencies: filters are intentionally triggers to reset pagination
-	useEffect(() => {
-		setVisibleCount(POSTS_PER_PAGE)
-	}, [techOnly, source, sort, bookmarkOnly, topic])
-
 	// Determine which posts to show
 	const displayPosts = isSearching
 		? (searchQueryResult.data?.pages.flatMap((page) => page.data) ?? [])
-		: visiblePosts
+		: listPosts
 
 	// Latest search page may carry meta.mode; show a label when semantic.
 	const searchMode = isSearching ? searchQueryResult.data?.pages[0]?.meta?.mode : undefined
 
-	// API取得中はローディング表示、SSGデータがある場合はそのまま表示
-	const isInitialLoading = useClientFetch && activeQuery.isLoading
+	const isInitialLoading = activeQuery.isLoading
 	const showSearchLoading = isSearching && searchQueryResult.isLoading
 	const isLoadingMore = isSearching
 		? searchQueryResult.isFetchingNextPage
-		: useClientFetch && activeQuery.isFetchingNextPage
+		: activeQuery.isFetchingNextPage
 	const showEndMessage = isSearching
 		? !searchQueryResult.hasNextPage && displayPosts.length > 0
 		: !hasMore && displayPosts.length > 0
@@ -377,13 +323,13 @@ function PostCardSkeleton() {
 }
 
 interface PostListProps {
-	allPosts?: PostWithFeed[]
+	initialPage?: CursorResponse<PostWithFeed[]>
 }
 
-export function PostList({ allPosts = [] }: PostListProps) {
+export function PostList({ initialPage }: PostListProps) {
 	return (
 		<QueryProvider>
-			<PostListContent allPosts={allPosts} />
+			<PostListContent initialPage={initialPage} />
 		</QueryProvider>
 	)
 }
