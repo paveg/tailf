@@ -51,7 +51,8 @@
 			"!**/.wrangler",
 			"!**/.claude",
 			"!**/*.astro",
-			"!**/*.css"
+			"!**/*.css",
+			"!apps/api/migrations"
 		]
 	}
 }

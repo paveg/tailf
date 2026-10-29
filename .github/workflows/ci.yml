@@ -31,6 +31,17 @@ jobs:
       # - name: Type check
       #   run: pnpm typecheck
 
+      - name: Check migrations are in sync with schema
+        run: |
+          # drizzle-kit exits 0 even when it cannot resolve a rename prompt without a TTY,
+          # so success is decided by its own "No schema changes" message and a clean tree.
+          pnpm --filter @tailf/api exec drizzle-kit generate < /dev/null 2>&1 | tee "$RUNNER_TEMP/generate.log"
+          if ! grep -q "No schema changes" "$RUNNER_TEMP/generate.log" || [ -n "$(git status --porcelain apps/api/migrations)" ]; then
+            echo "::error::schema.ts and apps/api/migrations are out of sync. Run pnpm db:generate and commit the result."
+            git status --short apps/api/migrations
+            exit 1
+          fi
+
       - name: Test
         run: pnpm test
 
