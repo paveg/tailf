@@ -18,7 +18,7 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { feeds, posts } from '../db/schema'
+import { feeds, posts, publicPostColumns } from '../db/schema'
 import { compute, decodeEmbedding, toEmbeddingBytes } from '../services/embedding'
 import { decodeOffsetCursor, encodeOffsetCursor, rankCandidates } from '../services/semantic-search'
 import { topicsToArray } from '../services/topic-assignment'
@@ -165,6 +165,7 @@ postsRoute.get('/', vValidator('query', postsQuerySchema), async (c) => {
 
 	const result = await db.query.posts.findMany({
 		where: conditions.length > 0 ? and(...conditions) : undefined,
+		columns: publicPostColumns,
 		limit: limit + 1,
 		orderBy,
 		with: { feed: { with: { author: true } } },
@@ -294,6 +295,7 @@ postsRoute.get(
 				// Fetch full details, preserving rank order
 				const postRows = await db.query.posts.findMany({
 					where: inArray(posts.id, pageIds),
+					columns: publicPostColumns,
 					with: { feed: { with: { author: true } } },
 				})
 				const byId = new Map(postRows.map((p) => [p.id, p]))
@@ -334,6 +336,7 @@ postsRoute.get(
 
 		const result = await db.query.posts.findMany({
 			where: conditions.length > 0 ? and(...conditions) : undefined,
+			columns: publicPostColumns,
 			limit: limit + 1,
 			orderBy: [desc(posts.publishedAt)],
 			with: { feed: { with: { author: true } } },
@@ -377,6 +380,7 @@ postsRoute.get(
 
 			return db.query.posts.findMany({
 				where: and(...conditions),
+				columns: publicPostColumns,
 				limit,
 				orderBy: [desc(posts.hatenaBookmarkCount), desc(posts.publishedAt)],
 				with: { feed: { with: { author: true } } },

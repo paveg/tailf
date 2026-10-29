@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { feedBookmarks, posts } from '../db/schema'
+import { feedBookmarks, posts, publicPostColumns } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { topicsToArray } from '../services/topic-assignment'
 import { TECH_SCORE_THRESHOLD } from '../utils/constants'
@@ -59,6 +59,7 @@ userFeedRoute.get('/', vValidator('query', feedQuerySchema), requireAuth, async 
 
 	const result = await db.query.posts.findMany({
 		where: conditions.length > 0 ? and(...conditions) : undefined,
+		columns: publicPostColumns,
 		limit: limit + 1,
 		orderBy: [desc(posts.publishedAt)],
 		with: { feed: { with: { author: true } } },

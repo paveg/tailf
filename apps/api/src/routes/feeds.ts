@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import * as v from 'valibot'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { feedBookmarks, feeds, posts } from '../db/schema'
+import { feedBookmarks, feeds, posts, publicPostColumns } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { encodeEmbedding } from '../services/embedding'
 import { fetchAndParseFeed } from '../services/rss'
@@ -74,6 +74,7 @@ feedsRoute.get('/mine', requireAuth, async (c) => {
 		orderBy: [desc(feeds.createdAt)],
 		with: {
 			posts: {
+				columns: publicPostColumns,
 				limit: 1,
 				orderBy: (posts, { desc }) => [desc(posts.publishedAt)],
 			},
@@ -107,6 +108,7 @@ feedsRoute.get('/:id', async (c) => {
 		with: {
 			author: true,
 			posts: {
+				columns: publicPostColumns,
 				limit: 10,
 				orderBy: (posts, { desc }) => [desc(posts.publishedAt)],
 			},
@@ -131,6 +133,7 @@ feedsRoute.get('/:id/posts', vValidator('query', paginationQuerySchema), async (
 		where: eq(feeds.id, id),
 		with: {
 			posts: {
+				columns: publicPostColumns,
 				limit: perPage,
 				offset,
 				orderBy: (posts, { desc }) => [desc(posts.publishedAt)],
