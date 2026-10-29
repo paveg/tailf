@@ -1,13 +1,13 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1793281014412,
-			"tag": "20261029133654_large_rocket_raccoon",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793281014412,
+      "tag": "20261029133654_large_rocket_raccoon",
+      "breakpoints": true
+    }
+  ]
 }
