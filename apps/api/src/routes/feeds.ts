@@ -153,7 +153,7 @@ feedsRoute.get('/:id/posts', vValidator('query', paginationQuerySchema), async (
 
 // Register a new feed
 feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c) => {
-	const { feedUrl: rawFeedUrl } = c.req.valid('json')
+	const { feedUrl: rawFeedUrl, useImages } = c.req.valid('json')
 	const db = c.get('db')
 	const userId = c.get('userId')
 
@@ -191,6 +191,7 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 			feedUrl,
 			siteUrl: parsedFeed.link || feedUrl,
 			type: feedType,
+			useImages,
 			authorId: userId,
 		})
 		console.log(`[Feed Register] Feed created: ${feedId} (type: ${feedType})`)
@@ -224,7 +225,7 @@ feedsRoute.post('/', vValidator('json', createFeedSchema), requireAuth, async (c
 						title: item.title,
 						summary,
 						url: item.link,
-						thumbnailUrl: item.thumbnail,
+						thumbnailUrl: useImages ? item.thumbnail : null,
 						publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
 						feedId,
 						techScore,
@@ -285,8 +286,17 @@ feedsRoute.patch('/:id', vValidator('json', updateFeedSchema), requireAuth, asyn
 		if (updates.title !== undefined) updateData.title = updates.title
 		if (updates.description !== undefined) updateData.description = updates.description
 		if (updates.type !== undefined) updateData.type = updates.type
+		if (updates.useImages !== undefined) updateData.useImages = updates.useImages
 
-		await db.update(feeds).set(updateData).where(eq(feeds.id, feedId))
+		const updateFeed = db.update(feeds).set(updateData).where(eq(feeds.id, feedId))
+		if (feed.useImages && updates.useImages === false) {
+			await db.batch([
+				updateFeed,
+				db.update(posts).set({ thumbnailUrl: null }).where(eq(posts.feedId, feedId)),
+			])
+		} else {
+			await updateFeed
+		}
 
 		// Return updated feed
 		const updatedFeed = await db.query.feeds.findFirst({

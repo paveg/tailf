@@ -370,7 +370,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 					title: item.title,
 					summary,
 					url: item.link,
-					thumbnailUrl: item.thumbnail ?? null,
+					thumbnailUrl: feed.useImages ? (item.thumbnail ?? null) : null,
 					publishedAt,
 					feedId: feed.id,
 					techScore: keywordScore,
@@ -383,7 +383,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 				existingUrls.add(item.link)
 
 				// Collect for OGP fetch if no thumbnail from RSS
-				if (!item.thumbnail) {
+				if (feed.useImages && !item.thumbnail) {
 					postsWithoutThumbnails.push({ id: postId, url: item.link })
 				}
 			}

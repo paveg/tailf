@@ -1,11 +1,11 @@
 /**
  * Admin routes (protected by ADMIN_SECRET)
  */
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { Env } from '..'
 import type { Database } from '../db'
-import { posts } from '../db/schema'
+import { feeds, posts } from '../db/schema'
 import { computeBatch, encodeEmbedding } from '../services/embedding'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
@@ -149,7 +149,13 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 	// Get posts without thumbnails, grouped by feed
 	const postsWithoutThumbnails = await db.query.posts.findMany({
-		where: isNull(posts.thumbnailUrl),
+		where: and(
+			isNull(posts.thumbnailUrl),
+			inArray(
+				posts.feedId,
+				db.select({ id: feeds.id }).from(feeds).where(eq(feeds.useImages, true)),
+			),
+		),
 		columns: { id: true, url: true, feedId: true },
 	})
 
