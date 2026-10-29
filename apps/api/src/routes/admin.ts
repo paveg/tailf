@@ -1,7 +1,7 @@
 /**
  * Admin routes (protected by ADMIN_SECRET)
  */
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { Env } from '..'
 import type { Database } from '../db'
@@ -9,6 +9,7 @@ import { posts } from '../db/schema'
 import { computeBatch, encodeEmbedding } from '../services/embedding'
 import { getDiff, syncOfficialFeeds } from '../services/feed-sync'
 import { getBookmarkCount } from '../services/hatena'
+import { feedIdsUsingImages, setPostThumbnail } from '../services/post-thumbnail'
 import { fetchOgImage, parseFeed } from '../services/rss'
 import { safeFetchExternal } from '../services/safe-fetch'
 import { calculateTechScoresBatch } from '../services/tech-score'
@@ -149,7 +150,7 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 
 	// Get posts without thumbnails, grouped by feed
 	const postsWithoutThumbnails = await db.query.posts.findMany({
-		where: isNull(posts.thumbnailUrl),
+		where: and(isNull(posts.thumbnailUrl), inArray(posts.feedId, feedIdsUsingImages(db))),
 		columns: { id: true, url: true, feedId: true },
 	})
 
@@ -210,7 +211,7 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 			for (const post of feedPosts) {
 				const thumbnail = thumbnailMap.get(post.url)
 				if (thumbnail) {
-					await db.update(posts).set({ thumbnailUrl: thumbnail }).where(eq(posts.id, post.id))
+					await setPostThumbnail(db, post.id, thumbnail)
 					updatedFromRss++
 				} else {
 					// Collect for OGP fallback
@@ -232,7 +233,7 @@ adminRoute.post('/posts/resync-thumbnails', async (c) => {
 		try {
 			const ogImage = await fetchOgImage(post.url)
 			if (ogImage) {
-				await db.update(posts).set({ thumbnailUrl: ogImage }).where(eq(posts.id, post.id))
+				await setPostThumbnail(db, post.id, ogImage)
 				updatedFromOgp++
 			}
 			// Rate limiting: 200ms between requests

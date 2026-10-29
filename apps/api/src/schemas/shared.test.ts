@@ -4,6 +4,7 @@ import {
 	paginationQuerySchema,
 	paginationSchema,
 	searchSchema,
+	updateFeedSchema,
 } from '@tailf/shared'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
@@ -52,6 +53,46 @@ describe('createFeedSchema', () => {
 			description: 'a'.repeat(1001),
 		})
 		expect(result.success).toBe(false)
+	})
+
+	it('defaults useImages to true', () => {
+		const result = v.safeParse(createFeedSchema, { feedUrl: 'https://example.com/feed.xml' })
+		expect(result.success).toBe(true)
+		if (result.success) expect(result.output.useImages).toBe(true)
+	})
+
+	it('accepts useImages false', () => {
+		const result = v.safeParse(createFeedSchema, {
+			feedUrl: 'https://example.com/feed.xml',
+			useImages: false,
+		})
+		expect(result.success).toBe(true)
+		if (result.success) expect(result.output.useImages).toBe(false)
+	})
+
+	it('rejects non-boolean useImages', () => {
+		const result = v.safeParse(createFeedSchema, {
+			feedUrl: 'https://example.com/feed.xml',
+			useImages: 'false',
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+describe('updateFeedSchema', () => {
+	it('leaves useImages undefined when omitted', () => {
+		const result = v.safeParse(updateFeedSchema, { title: 'New title' })
+		expect(result.success).toBe(true)
+		if (result.success) expect(result.output.useImages).toBeUndefined()
+	})
+
+	it('accepts boolean useImages', () => {
+		expect(v.safeParse(updateFeedSchema, { useImages: false }).success).toBe(true)
+		expect(v.safeParse(updateFeedSchema, { useImages: true }).success).toBe(true)
+	})
+
+	it('rejects non-boolean useImages', () => {
+		expect(v.safeParse(updateFeedSchema, { useImages: 0 }).success).toBe(false)
 	})
 })
 

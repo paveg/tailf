@@ -1,7 +1,7 @@
 /**
  * TanStack Query hooks for tailf
  */
-import type { PostWithFeed } from '@tailf/shared'
+import type { PostWithFeed, UpdateFeedInput } from '@tailf/shared'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CursorResponse, SortOption } from './api'
 import {
@@ -23,6 +23,7 @@ import {
 	type SearchPostsParams,
 	searchPosts,
 	unbookmarkFeed,
+	updateFeed,
 } from './api'
 
 /**
@@ -223,6 +224,20 @@ export function useRegisterFeed() {
 	return useMutation({
 		mutationFn: (params: RegisterFeedParams) => registerFeed(params),
 		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
+			queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
+		},
+	})
+}
+
+export function useUpdateFeed() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ feedId, ...params }: UpdateFeedInput & { feedId: string }) =>
+			updateFeed(feedId, params),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.mine })
 			queryClient.invalidateQueries({ queryKey: queryKeys.feeds.all })
 			queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
 		},

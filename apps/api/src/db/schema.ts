@@ -36,6 +36,7 @@ export const feeds = sqliteTable(
 		// 公式フィードフラグ（会社・組織の公式テックブログ等）
 		// 現在は GitHub Issue 経由で手動管理、将来的に申請フロー実装予定
 		isOfficial: integer('is_official', { mode: 'boolean' }).notNull().default(false),
+		useImages: integer('use_images', { mode: 'boolean' }).notNull().default(true),
 		// ブックマーク数（ブックマーク追加/削除時に更新）
 		bookmarkCount: integer('bookmark_count').notNull().default(0),
 		// 最終RSSフェッチ日時（フェッチ優先順位の決定に使用）

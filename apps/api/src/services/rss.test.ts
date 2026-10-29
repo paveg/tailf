@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDb } from '../db'
+import { feedRow } from '../test-utils/feed-row'
 import { decodeHtmlEntities } from '../utils/html'
 import { fetchRssFeeds, parseAtom, parseFeed, parseRss } from './rss'
 import { safeFetchExternal } from './safe-fetch'
@@ -645,22 +646,8 @@ describe('parseFeed', () => {
 describe('fetchRssFeeds duplicate detection', () => {
 	type Statement = { sql: string; params: unknown[] }
 
-	function createFakeD1(existingUrls: string[]) {
+	function createFakeD1(existingUrls: string[], feedRows: unknown[][] = [feedRow()]) {
 		const statements: Statement[] = []
-		const feedRow = [
-			'f1',
-			'Feed',
-			null,
-			'https://ex.com/feed',
-			'https://ex.com',
-			'blog',
-			0,
-			0,
-			null,
-			null,
-			0,
-			0,
-		]
 		const d1 = {
 			prepare(sql: string) {
 				let params: unknown[] = []
@@ -675,7 +662,7 @@ describe('fetchRssFeeds duplicate detection', () => {
 					},
 					raw: async () => {
 						statements.push({ sql, params })
-						if (/from "feeds"/i.test(sql)) return [feedRow]
+						if (/from "feeds"/i.test(sql)) return feedRows
 						const lookedUp = params.length > 0 ? params : existingUrls
 						return existingUrls.filter((url) => lookedUp.includes(url)).map((url) => [url])
 					},
@@ -741,5 +728,89 @@ describe('fetchRssFeeds duplicate detection', () => {
 
 		const selects = postSelects(statements)
 		expect(selects.map(({ params }) => params.length)).toEqual([100, 50])
+	})
+	describe('feeds with useImages = false', () => {
+		const OG_PAGE = '<meta property="og:image" content="https://ex.com/og.png">'
+		const IMAGE_FEED = 'https://img.example/feed'
+		const NO_IMAGE_FEED = 'https://noimg.example/feed'
+
+		const itemXml = (url: string, withThumbnail: boolean) =>
+			`<item><title>t</title><link>${url}</link>${
+				withThumbnail ? `<media:thumbnail url="${url}.png"/>` : ''
+			}</item>`
+		const rss = (items: string) => `<rss><channel><title>Feed</title>${items}</channel></rss>`
+
+		function serve(pages: Record<string, string>) {
+			vi.mocked(safeFetchExternal).mockImplementation(async (url) => pages[url] ?? OG_PAGE)
+		}
+		const fetchedUrls = () => vi.mocked(safeFetchExternal).mock.calls.map(([url]) => url)
+		const insertedParams = (statements: Statement[]) =>
+			postInserts(statements).flatMap(({ params }) => params)
+		const thumbnailUpdates = (statements: Statement[]) =>
+			statements.filter(({ sql }) => /^update "posts"/i.test(sql))
+
+		it('R1: drops the RSS thumbnail', async () => {
+			const { d1, statements } = createFakeD1(
+				[],
+				[feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 })],
+			)
+			serve({ [NO_IMAGE_FEED]: rss(itemXml('https://noimg.example/a', true)) })
+
+			await fetchRssFeeds(createDb(d1))
+
+			const params = insertedParams(statements)
+			expect(params).toContain('https://noimg.example/a')
+			expect(params).not.toContain('https://noimg.example/a.png')
+		})
+
+		it('R2: never requests the article page for og:image', async () => {
+			const { d1, statements } = createFakeD1(
+				[],
+				[feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 })],
+			)
+			serve({ [NO_IMAGE_FEED]: rss(itemXml('https://noimg.example/a', false)) })
+
+			await fetchRssFeeds(createDb(d1))
+
+			expect(fetchedUrls()).toEqual([NO_IMAGE_FEED])
+			expect(thumbnailUpdates(statements)).toHaveLength(0)
+		})
+
+		it('R4: the OGP thumbnail write only applies while the feed still uses images', async () => {
+			const { d1, statements } = createFakeD1([], [feedRow({ id: 'f1', feedUrl: IMAGE_FEED })])
+			serve({ [IMAGE_FEED]: rss(itemXml('https://img.example/without', false)) })
+
+			await fetchRssFeeds(createDb(d1))
+
+			const updates = thumbnailUpdates(statements)
+			expect(updates).toHaveLength(1)
+			expect(updates[0].sql).toMatch(
+				/"feed_id" in \(select "id" from "feeds" where "feeds"\."use_images" = \?\)/i,
+			)
+			expect(updates[0].params.at(-1)).toBe(1)
+		})
+
+		it('R3: keeps the thumbnail and OGP lookup for a feed that uses images, in the same run', async () => {
+			const { d1, statements } = createFakeD1(
+				[],
+				[
+					feedRow({ id: 'f1', feedUrl: IMAGE_FEED }),
+					feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 }),
+				],
+			)
+			serve({
+				[IMAGE_FEED]: rss(
+					`${itemXml('https://img.example/with', true)}${itemXml('https://img.example/without', false)}`,
+				),
+				[NO_IMAGE_FEED]: rss(itemXml('https://noimg.example/a', false)),
+			})
+
+			await fetchRssFeeds(createDb(d1))
+
+			expect(insertedParams(statements)).toContain('https://img.example/with.png')
+			expect(fetchedUrls()).toContain('https://img.example/without')
+			expect(fetchedUrls()).not.toContain('https://noimg.example/a')
+			expect(thumbnailUpdates(statements)).toHaveLength(1)
+		})
 	})
 })

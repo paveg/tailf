@@ -1,0 +1,1 @@
+ALTER TABLE `feeds` ADD `use_images` integer DEFAULT true NOT NULL;

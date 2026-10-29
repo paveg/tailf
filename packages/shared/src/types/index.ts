@@ -50,6 +50,7 @@ export interface Feed {
 	siteUrl: string
 	type: FeedType
 	isOfficial: boolean
+	useImages: boolean
 	bookmarkCount: number
 	authorId: string | null
 	createdAt: Date
