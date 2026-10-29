@@ -85,11 +85,21 @@ export async function fetchFirstPostsPageForSSG(): Promise<CursorResponse<PostWi
 	return result
 }
 
+let allPostsPromise: Promise<PostWithFeed[]> | undefined
+
 /**
  * Fetch all posts from API (server-side, for SSG)
- * Fetches in batches until no more data
+ * Shared across pages for the lifetime of the build process
  */
-export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
+export function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
+	allPostsPromise ??= fetchAllPostsPages().catch((error) => {
+		allPostsPromise = undefined
+		throw error
+	})
+	return allPostsPromise
+}
+
+async function fetchAllPostsPages(): Promise<PostWithFeed[]> {
 	const { url: baseUrl, strict } = getApiBaseUrl()
 	const allPosts: PostWithFeed[] = []
 	let cursor: string | null = null
