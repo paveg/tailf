@@ -1,6 +1,7 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 import type { Database } from '../db'
 import { feeds, posts } from '../db/schema'
+import { D1_MAX_VARIABLES } from '../utils/constants'
 import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
 import { encodeEmbedding } from './embedding'
@@ -263,13 +264,6 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 		`[RSS] Total feeds: ${allFeeds.length}, processing up to ${MAX_FEED_FETCHES_PER_RUN} per run`,
 	)
 
-	// Get all existing post URLs in ONE query to avoid N+1
-	const existingPosts = await db.query.posts.findMany({
-		columns: { url: true },
-	})
-	const existingUrls = new Set(existingPosts.map((p) => p.url))
-	console.log(`[DB] Found ${existingUrls.size} existing posts`)
-
 	// Collect new posts for batch insert
 	const postsToInsert: Array<{
 		id: string
@@ -291,6 +285,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 
 	// Track subrequests to stay within Cloudflare Workers limits
 	let feedsFetched = 0
+	const fetchedFeeds: Array<{ feed: (typeof allFeeds)[number]; items: RssItem[] }> = []
 
 	for (const feed of allFeeds) {
 		// Stop if we've reached the subrequest limit
@@ -333,8 +328,32 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 				})
 			}
 
+			fetchedFeeds.push({ feed, items: parsedFeed.items })
+		} catch (error) {
+			console.error(`Error processing ${feed.feedUrl}:`, error)
+		}
+	}
+
+	// Look up only the URLs seen in this run (posts.url is UNIQUE-indexed) instead of
+	// loading every stored URL; one query per D1_MAX_VARIABLES bound parameters
+	const candidateUrls = [...new Set(fetchedFeeds.flatMap(({ items }) => items.map((i) => i.link)))]
+	const existingUrls = new Set<string>()
+	for (let i = 0; i < candidateUrls.length; i += D1_MAX_VARIABLES) {
+		const chunk = candidateUrls.slice(i, i + D1_MAX_VARIABLES)
+		const rows = await db.query.posts.findMany({
+			columns: { url: true },
+			where: inArray(posts.url, chunk),
+		})
+		for (const row of rows) existingUrls.add(row.url)
+	}
+	console.log(
+		`[DB] Found ${existingUrls.size} existing posts among ${candidateUrls.length} candidates`,
+	)
+
+	for (const { feed, items } of fetchedFeeds) {
+		try {
 			// Collect new posts
-			for (const item of parsedFeed.items) {
+			for (const item of items) {
 				// Skip if already exists (using Set lookup - O(1))
 				if (existingUrls.has(item.link)) {
 					continue

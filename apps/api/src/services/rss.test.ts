@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDb } from '../db'
 import { decodeHtmlEntities } from '../utils/html'
-import { parseAtom, parseFeed, parseRss } from './rss'
+import { fetchRssFeeds, parseAtom, parseFeed, parseRss } from './rss'
+import { safeFetchExternal } from './safe-fetch'
+
+vi.mock('./safe-fetch', () => ({ safeFetchExternal: vi.fn() }))
 
 /**
  * fetchRssFeeds integration behavior tests
@@ -635,5 +639,107 @@ describe('parseFeed', () => {
 	it('returns null for completely invalid XML', () => {
 		expect(parseFeed('not valid xml at all')).toBeNull()
 		expect(parseFeed('<html><body>Not a feed</body></html>')).toBeNull()
+	})
+})
+
+describe('fetchRssFeeds duplicate detection', () => {
+	type Statement = { sql: string; params: unknown[] }
+
+	function createFakeD1(existingUrls: string[]) {
+		const statements: Statement[] = []
+		const feedRow = [
+			'f1',
+			'Feed',
+			null,
+			'https://ex.com/feed',
+			'https://ex.com',
+			'blog',
+			0,
+			0,
+			null,
+			null,
+			0,
+			0,
+		]
+		const d1 = {
+			prepare(sql: string) {
+				let params: unknown[] = []
+				const stmt = {
+					bind: (...bound: unknown[]) => {
+						params = bound
+						return stmt
+					},
+					run: async () => {
+						statements.push({ sql, params })
+						return { success: true }
+					},
+					raw: async () => {
+						statements.push({ sql, params })
+						if (/from "feeds"/i.test(sql)) return [feedRow]
+						const lookedUp = params.length > 0 ? params : existingUrls
+						return existingUrls.filter((url) => lookedUp.includes(url)).map((url) => [url])
+					},
+				}
+				return stmt
+			},
+		}
+		return { d1: d1 as unknown as D1Database, statements }
+	}
+
+	function rssWithItems(urls: string[]) {
+		const items = urls
+			.map(
+				(url) =>
+					`<item><title>t ${url}</title><link>${url}</link><media:thumbnail url="${url}.png"/></item>`,
+			)
+			.join('')
+		return `<rss><channel><title>Feed</title>${items}</channel></rss>`
+	}
+
+	const postSelects = (statements: Statement[]) =>
+		statements.filter(({ sql }) => /from "posts"/i.test(sql))
+	const postInserts = (statements: Statement[]) =>
+		statements.filter(({ sql }) => /^insert into "posts"/i.test(sql))
+
+	beforeEach(() => {
+		vi.mocked(safeFetchExternal).mockReset()
+	})
+
+	it('D1: looks up only the URLs found in the fetched feeds', async () => {
+		const { d1, statements } = createFakeD1(['https://ex.com/old', 'https://ex.com/unrelated'])
+		vi.mocked(safeFetchExternal).mockResolvedValue(
+			rssWithItems(['https://ex.com/old', 'https://ex.com/new']),
+		)
+
+		await fetchRssFeeds(createDb(d1))
+
+		const selects = postSelects(statements)
+		expect(selects).toHaveLength(1)
+		expect(selects[0].sql).toMatch(/"url" in \(/i)
+		expect(selects[0].params).toEqual(['https://ex.com/old', 'https://ex.com/new'])
+	})
+
+	it('D2: inserts only URLs that are not stored yet', async () => {
+		const { d1, statements } = createFakeD1(['https://ex.com/old'])
+		vi.mocked(safeFetchExternal).mockResolvedValue(
+			rssWithItems(['https://ex.com/old', 'https://ex.com/new']),
+		)
+
+		await fetchRssFeeds(createDb(d1))
+
+		const inserted = postInserts(statements).flatMap(({ params }) => params)
+		expect(inserted).toContain('https://ex.com/new')
+		expect(inserted).not.toContain('https://ex.com/old')
+	})
+
+	it('D3: splits the lookup so no query binds more than 100 URLs', async () => {
+		const urls = Array.from({ length: 150 }, (_, i) => `https://ex.com/p${i}`)
+		const { d1, statements } = createFakeD1([])
+		vi.mocked(safeFetchExternal).mockResolvedValue(rssWithItems(urls))
+
+		await fetchRssFeeds(createDb(d1))
+
+		const selects = postSelects(statements)
+		expect(selects.map(({ params }) => params.length)).toEqual([100, 50])
 	})
 })

@@ -35,6 +35,12 @@ function getApiBaseUrl(): ApiBaseUrl {
 	const apiUrl = import.meta.env.PUBLIC_API_URL
 	const lenient = process.env.SSG_ALLOW_EMPTY === 'true'
 	if (apiUrl) return { url: apiUrl, strict: !lenient }
+	if (process.env.WORKERS_CI === '1') {
+		throw new Error(
+			'[SSG] PUBLIC_API_URL is not set in this Workers Builds build. ' +
+				'Set it as a build variable in the Cloudflare dashboard, otherwise the build would deploy empty pages.',
+		)
+	}
 	return { url: 'http://localhost:8788/api', strict: false }
 }
 
@@ -79,11 +85,21 @@ export async function fetchFirstPostsPageForSSG(): Promise<CursorResponse<PostWi
 	return result
 }
 
+let allPostsPromise: Promise<PostWithFeed[]> | undefined
+
 /**
  * Fetch all posts from API (server-side, for SSG)
- * Fetches in batches until no more data
+ * Shared across pages for the lifetime of the build process
  */
-export async function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
+export function fetchAllPostsForSSG(): Promise<PostWithFeed[]> {
+	allPostsPromise ??= fetchAllPostsPages().catch((error) => {
+		allPostsPromise = undefined
+		throw error
+	})
+	return allPostsPromise
+}
+
+async function fetchAllPostsPages(): Promise<PostWithFeed[]> {
 	const { url: baseUrl, strict } = getApiBaseUrl()
 	const allPosts: PostWithFeed[] = []
 	let cursor: string | null = null
