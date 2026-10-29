@@ -90,6 +90,8 @@ export const posts = sqliteTable(
 	],
 )
 
+export const publicPostColumns = { embedding: false } as const
+
 // Feed bookmarks table (many-to-many: users <-> feeds)
 export const feedBookmarks = sqliteTable(
 	'feed_bookmarks',
