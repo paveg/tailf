@@ -24,14 +24,13 @@
 		"@tailf/shared": "workspace:*",
 		"drizzle-orm": "^0.38.0",
 		"fast-xml-parser": "^4.5.0",
-		"hono": "^4.6.0",
+		"hono": "^4.13.14",
 		"valibot": "^1.0.0"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "0.12.5",
 		"@cloudflare/workers-types": "^4.20241218.0",
 		"drizzle-kit": "^0.30.0",
-		"vitest": "4.0.17",
-		"wrangler": "^4.59.2"
+		"vitest": "4.1.12",
+		"wrangler": "^4.155.0"
 	}
 }
