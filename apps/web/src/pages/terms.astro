@@ -43,7 +43,7 @@ import Layout from '../layouts/Layout.astro'
 
 			<section>
 				<h2 class="mb-3 text-xl font-semibold text-foreground">5. 取得した情報の扱い</h2>
-				<p>本サービスは、登録されたフィードから次の情報を取得して掲載します。</p>
+				<p>本サービスは登録されたフィードから次の情報を取得して掲載します。</p>
 				<ul class="list-disc pl-6 space-y-1 mt-2">
 					<li>記事のタイトル</li>
 					<li>RSSの説明文（description）の先頭最大500文字</li>
@@ -55,14 +55,13 @@ import Layout from '../layouts/Layout.astro'
 					記事の本文は保存しません。要約の生成と翻訳も行いません。
 				</p>
 				<p class="mt-2">
-					記事の画像には、RSSに含まれる画像（enclosureなど）を使います。RSSに画像がない場合は、記事ページを取得して、OGP画像（og:image）のURLを探します。
+					記事の画像にはRSSに含まれる画像（enclosureなど）を使います。RSSに画像がない場合は、記事ページを取得して、OGP画像（og:image）のURLを探します。
 					本サービスが保存するのは画像のURLだけです。表示するときは元のURLを直接参照し、画像ファイルを複製して保存することはありません。
-					OGP画像を探すために記事ページを取得しますが、本文は保存しません。
 					フィードの登録者は「記事の画像を使用しない」を設定できます。設定したフィードでは、画像の取得も表示も行いません。
 				</p>
 				<p class="mt-2">
 					記事のタイトルと上記の説明文の抜粋から、Cloudflare Workers AIを使って検索用のベクトル（埋め込み）を生成し、保存します。
-					このベクトルは、意味検索と技術記事の判定に使います。
+					このベクトルは意味検索と技術記事の判定に使います。
 					取得した情報を、AIモデルの学習に使うことはありません。
 					Cloudflareも、Workers AIで処理したデータをモデルの学習に使用しないと公表しています（<a href="https://developers.cloudflare.com/workers-ai/platform/data-usage/" class="text-primary hover:underline" target="_blank" rel="noopener">Cloudflare Workers AIのデータ利用について</a>）。
 				</p>
