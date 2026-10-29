@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { Hono } from 'hono'
 import { describe, expect, it } from 'vitest'
 import type { Env } from '..'
@@ -89,6 +90,25 @@ describe('GET /api/auth/github', () => {
 		expect(s1).toBeTruthy()
 		expect(s2).toBeTruthy()
 		expect(s1).not.toBe(s2)
+	})
+
+	it('marks the cookie Secure unless ENVIRONMENT is development', async () => {
+		const app = makeApp()
+		const isSecure = async (environment: string | undefined) => {
+			const res = await app.request('/api/auth/github', {}, { ...env, ENVIRONMENT: environment })
+			return (getSetCookie(res, 'oauth_state') ?? '').toLowerCase().includes('secure')
+		}
+
+		expect(await isSecure('production')).toBe(true)
+		expect(await isSecure(undefined)).toBe(true)
+		expect(await isSecure('development')).toBe(false)
+	})
+})
+
+describe('wrangler.toml', () => {
+	it('does not deploy ENVIRONMENT=development (local dev overrides it via .dev.vars)', () => {
+		const toml = readFileSync(new URL('../../wrangler.toml', import.meta.url), 'utf8')
+		expect(toml).not.toMatch(/^ENVIRONMENT\s*=\s*"development"/m)
 	})
 })
 
