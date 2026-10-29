@@ -9,6 +9,7 @@ import type {
 	FeedWithAuthor,
 	Post,
 	PostWithFeed,
+	UpdateFeedInput,
 	User,
 } from '@tailf/shared'
 
@@ -166,6 +167,7 @@ export async function getFeedById(id: string): Promise<ApiResponse<Feed>> {
 
 export interface RegisterFeedParams {
 	feedUrl: string
+	useImages?: boolean
 }
 
 export interface RegisterFeedResponse {
@@ -176,6 +178,16 @@ export interface RegisterFeedResponse {
 export async function registerFeed(params: RegisterFeedParams): Promise<RegisterFeedResponse> {
 	return fetchApi<RegisterFeedResponse>('/feeds', {
 		method: 'POST',
+		body: JSON.stringify(params),
+	})
+}
+
+export async function updateFeed(
+	feedId: string,
+	params: UpdateFeedInput,
+): Promise<ApiResponse<Feed>> {
+	return fetchApi<ApiResponse<Feed>>(`/feeds/${feedId}`, {
+		method: 'PATCH',
 		body: JSON.stringify(params),
 	})
 }

@@ -18,6 +18,7 @@ import {
 	useMyFeeds,
 	useRegisterFeed,
 	useUnbookmarkFeed,
+	useUpdateFeed,
 } from '@/lib/hooks'
 import { QueryProvider } from './QueryProvider'
 import { Alert, AlertDescription, AlertTitle } from './ui/alert'
@@ -34,7 +35,39 @@ import {
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { Switch } from './ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+
+function NoImagesSwitch({
+	id,
+	checked,
+	onCheckedChange,
+	disabled,
+}: {
+	id: string
+	checked: boolean
+	onCheckedChange: (checked: boolean) => void
+	disabled?: boolean
+}) {
+	return (
+		<div className="flex items-start gap-3">
+			<Switch
+				id={id}
+				checked={checked}
+				onCheckedChange={onCheckedChange}
+				disabled={disabled}
+				className="mt-0.5"
+			/>
+			<div className="space-y-0.5">
+				<Label htmlFor={id}>記事の画像を使用しない</Label>
+				<p className="text-xs text-muted-foreground">
+					オンにすると、このフィードの記事では画像（RSS の画像や記事ページの OGP
+					画像）を取得・表示しません。
+				</p>
+			</div>
+		</div>
+	)
+}
 
 function MyFeedsContent() {
 	const { data: user, isLoading: userLoading } = useCurrentUser()
@@ -42,8 +75,10 @@ function MyFeedsContent() {
 	const { data: bookmarkedData, isLoading: bookmarkedLoading } = useBookmarkedFeeds()
 	const deleteFeed = useDeleteFeed()
 	const registerFeed = useRegisterFeed()
+	const updateFeed = useUpdateFeed()
 	const unbookmarkFeed = useUnbookmarkFeed()
 	const [feedUrl, setFeedUrl] = useState('')
+	const [withoutImages, setWithoutImages] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
 	const [unbookmarkTarget, setUnbookmarkTarget] = useState<{ id: string; title: string } | null>(
 		null,
@@ -97,8 +132,9 @@ function MyFeedsContent() {
 		if (!feedUrl.trim()) return
 
 		try {
-			await registerFeed.mutateAsync({ feedUrl: feedUrl.trim() })
+			await registerFeed.mutateAsync({ feedUrl: feedUrl.trim(), useImages: !withoutImages })
 			setFeedUrl('')
+			setWithoutImages(false)
 			toast.success('フィードを登録しました')
 		} catch (error) {
 			let message = 'フィードの登録に失敗しました'
@@ -111,6 +147,16 @@ function MyFeedsContent() {
 					message = error.message
 				}
 			}
+			toast.error(message)
+		}
+	}
+
+	const handleUseImagesChange = async (feedId: string, withoutImages: boolean) => {
+		try {
+			await updateFeed.mutateAsync({ feedId, useImages: !withoutImages })
+			toast.success('画像の設定を更新しました')
+		} catch (error) {
+			const message = error instanceof Error ? error.message : '設定の更新に失敗しました'
 			toast.error(message)
 		}
 	}
@@ -199,6 +245,14 @@ function MyFeedsContent() {
 							{registerFeed.isPending ? '登録中' : '登録'}
 						</Button>
 					</form>
+					<div className="mt-3">
+						<NoImagesSwitch
+							id="registerWithoutImages"
+							checked={withoutImages}
+							onCheckedChange={setWithoutImages}
+							disabled={registerFeed.isPending}
+						/>
+					</div>
 				</div>
 			</div>
 
@@ -282,6 +336,14 @@ function MyFeedsContent() {
 										>
 											<Trash2 className="size-4" />
 										</Button>
+									</div>
+									<div className="relative mt-4 border-t pt-4">
+										<NoImagesSwitch
+											id={`withoutImages-${feed.id}`}
+											checked={!feed.useImages}
+											onCheckedChange={(checked) => handleUseImagesChange(feed.id, checked)}
+											disabled={updateFeed.isPending}
+										/>
 									</div>
 								</div>
 							))}
