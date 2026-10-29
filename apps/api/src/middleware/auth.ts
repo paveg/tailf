@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import type { Context, Next } from 'hono'
 import { deleteCookie, getCookie } from 'hono/cookie'
+import { createMiddleware } from 'hono/factory'
 import type { Database } from '../db'
 import { sessions } from '../db/schema'
 import { isSessionExpired } from '../utils/date'
@@ -16,7 +16,7 @@ type AuthEnv = {
  * Middleware to require authenticated session.
  * Sets userId in context variables on success.
  */
-export async function requireAuth(c: Context<AuthEnv>, next: Next) {
+export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
 	const sessionId = getCookie(c, 'session')
 	if (!sessionId) {
 		return c.json({ error: 'Unauthorized' }, 401)
@@ -34,4 +34,4 @@ export async function requireAuth(c: Context<AuthEnv>, next: Next) {
 
 	c.set('userId', session.userId)
 	await next()
-}
+})
