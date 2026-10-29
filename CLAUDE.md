@@ -29,6 +29,7 @@ pnpm deploy          # Deploy API to Cloudflare Workers
 pnpm db:generate         # Generate migration from schema changes
 pnpm db:migrate:local    # Apply migrations to local D1
 pnpm db:migrate:prod     # Apply migrations to production D1
+# Migration policy and rollback: docs/runbook/database-migrations.md
 
 # Lint & Format (Biome)
 pnpm lint        # Check
