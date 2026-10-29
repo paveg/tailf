@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Env } from '..'
 import { createDb, type Database } from '../db'
 import { fetchAndParseFeed } from '../services/rss'
+import { feedRow } from '../test-utils/feed-row'
 import { feedsRoute } from './feeds'
 
 vi.mock('../middleware/auth', () => ({
@@ -26,8 +27,7 @@ type Statement = { sql: string; params: unknown[] }
 
 const THUMBNAIL = 'https://ex.com/a.png'
 
-/** Fake D1 that records statements with their bound params; `feedRow` answers the feeds lookup. */
-function createFakeD1(feedRow: unknown[] | null) {
+function createFakeD1(storedFeedRow: unknown[] | null) {
 	const statements: Statement[] = []
 	const prepare = (sql: string) => {
 		const statement: Statement = { sql, params: [] }
@@ -41,7 +41,9 @@ function createFakeD1(feedRow: unknown[] | null) {
 			first: async () => null,
 			run: async () => ({ success: true }),
 			raw: async () =>
-				feedRow && /^select "id", "title"/i.test(sql) && !/json/i.test(sql) ? [feedRow] : [],
+				storedFeedRow && /^select "id", "title"/i.test(sql) && !/json/i.test(sql)
+					? [storedFeedRow]
+					: [],
 		}
 		return stmt
 	}
@@ -68,8 +70,7 @@ const postInserts = (statements: Statement[]) =>
 const postThumbnailWrites = (statements: Statement[]) =>
 	statements.filter(({ sql }) => /^update "posts"/i.test(sql))
 
-/** Value inserted for `column`: the bound param, or null when drizzle inlined a `null` literal. */
-function insertedValue({ sql, params }: Statement, column: string) {
+function boundInsertValue({ sql, params }: Statement, column: string) {
 	const [columnList, valueList] = [...sql.matchAll(/\(([^)]*)\)/g)].map((m) => m[1])
 	const index = columnList.split(',').findIndex((name) => name.trim() === `"${column}"`)
 	const placeholder = valueList.split(',')[index].trim()
@@ -114,7 +115,7 @@ describe('POST /api/feeds useImages', () => {
 		expect(res.status).toBe(200)
 		const inserts = postInserts(statements)
 		expect(inserts).toHaveLength(1)
-		expect(insertedValue(inserts[0], 'thumbnail_url')).toBe(THUMBNAIL)
+		expect(boundInsertValue(inserts[0], 'thumbnail_url')).toBe(THUMBNAIL)
 	})
 
 	it('U2: stores no thumbnail when useImages is false', async () => {
@@ -123,7 +124,7 @@ describe('POST /api/feeds useImages', () => {
 		expect(res.status).toBe(200)
 		const inserts = postInserts(statements)
 		expect(inserts).toHaveLength(1)
-		expect(insertedValue(inserts[0], 'thumbnail_url')).toBeNull()
+		expect(boundInsertValue(inserts[0], 'thumbnail_url')).toBeNull()
 	})
 
 	it('U3: persists use_images = false on the new feed', async () => {
@@ -131,7 +132,7 @@ describe('POST /api/feeds useImages', () => {
 
 		const feedInsert = statements.find(({ sql }) => /^insert into "feeds"/i.test(sql))
 		expect(feedInsert).toBeDefined()
-		expect(insertedValue(feedInsert as Statement, 'use_images')).toBe(0)
+		expect(boundInsertValue(feedInsert as Statement, 'use_images')).toBe(0)
 	})
 
 	it('U4: rejects a non-boolean useImages', async () => {
@@ -143,25 +144,12 @@ describe('POST /api/feeds useImages', () => {
 })
 
 describe('PATCH /api/feeds/:id useImages', () => {
-	// id, title, description, feedUrl, siteUrl, type, isOfficial, useImages, bookmarkCount, lastFetchedAt, authorId, createdAt, updatedAt
-	const feedRow = (useImages: 0 | 1, authorId = 'user-1') => [
-		'f1',
-		'Feed',
-		null,
-		'https://ex.com/feed.xml',
-		'https://ex.com',
-		'blog',
-		0,
-		useImages,
-		0,
-		null,
-		authorId,
-		0,
-		0,
-	]
-
-	const patch = async (stored: 0 | 1, body: Record<string, unknown>, authorId?: string) => {
-		const { d1, statements } = createFakeD1(feedRow(stored, authorId))
+	const patch = async (
+		stored: 0 | 1,
+		body: Record<string, unknown>,
+		authorId: string = 'user-1',
+	) => {
+		const { d1, statements } = createFakeD1(feedRow({ useImages: stored, authorId }))
 		const res = await makeApp(d1).request('/api/feeds/f1', jsonRequest('PATCH', body), {} as Env)
 		return { res, statements }
 	}

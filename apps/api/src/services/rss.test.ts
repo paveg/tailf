@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDb } from '../db'
+import { feedRow } from '../test-utils/feed-row'
 import { decodeHtmlEntities } from '../utils/html'
 import { fetchRssFeeds, parseAtom, parseFeed, parseRss } from './rss'
 import { safeFetchExternal } from './safe-fetch'
@@ -645,27 +646,7 @@ describe('parseFeed', () => {
 describe('fetchRssFeeds duplicate detection', () => {
 	type Statement = { sql: string; params: unknown[] }
 
-	// id, title, description, feedUrl, siteUrl, type, isOfficial, useImages, bookmarkCount, lastFetchedAt, authorId, createdAt, updatedAt
-	const feedRow = (id: string, feedUrl: string, useImages: 0 | 1) => [
-		id,
-		'Feed',
-		null,
-		feedUrl,
-		'https://ex.com',
-		'blog',
-		0,
-		useImages,
-		0,
-		null,
-		null,
-		0,
-		0,
-	]
-
-	function createFakeD1(
-		existingUrls: string[],
-		feedRows: unknown[][] = [feedRow('f1', 'https://ex.com/feed', 1)],
-	) {
+	function createFakeD1(existingUrls: string[], feedRows: unknown[][] = [feedRow()]) {
 		const statements: Statement[] = []
 		const d1 = {
 			prepare(sql: string) {
@@ -769,7 +750,10 @@ describe('fetchRssFeeds duplicate detection', () => {
 			statements.filter(({ sql }) => /^update "posts"/i.test(sql))
 
 		it('R1: drops the RSS thumbnail', async () => {
-			const { d1, statements } = createFakeD1([], [feedRow('f2', NO_IMAGE_FEED, 0)])
+			const { d1, statements } = createFakeD1(
+				[],
+				[feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 })],
+			)
 			serve({ [NO_IMAGE_FEED]: rss(itemXml('https://noimg.example/a', true)) })
 
 			await fetchRssFeeds(createDb(d1))
@@ -780,7 +764,10 @@ describe('fetchRssFeeds duplicate detection', () => {
 		})
 
 		it('R2: never requests the article page for og:image', async () => {
-			const { d1, statements } = createFakeD1([], [feedRow('f2', NO_IMAGE_FEED, 0)])
+			const { d1, statements } = createFakeD1(
+				[],
+				[feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 })],
+			)
 			serve({ [NO_IMAGE_FEED]: rss(itemXml('https://noimg.example/a', false)) })
 
 			await fetchRssFeeds(createDb(d1))
@@ -792,7 +779,10 @@ describe('fetchRssFeeds duplicate detection', () => {
 		it('R3: keeps the thumbnail and OGP lookup for a feed that uses images, in the same run', async () => {
 			const { d1, statements } = createFakeD1(
 				[],
-				[feedRow('f1', IMAGE_FEED, 1), feedRow('f2', NO_IMAGE_FEED, 0)],
+				[
+					feedRow({ id: 'f1', feedUrl: IMAGE_FEED }),
+					feedRow({ id: 'f2', feedUrl: NO_IMAGE_FEED, useImages: 0 }),
+				],
 			)
 			serve({
 				[IMAGE_FEED]: rss(
