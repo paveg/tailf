@@ -776,6 +776,20 @@ describe('fetchRssFeeds duplicate detection', () => {
 			expect(thumbnailUpdates(statements)).toHaveLength(0)
 		})
 
+		it('R4: the OGP thumbnail write only applies while the feed still uses images', async () => {
+			const { d1, statements } = createFakeD1([], [feedRow({ id: 'f1', feedUrl: IMAGE_FEED })])
+			serve({ [IMAGE_FEED]: rss(itemXml('https://img.example/without', false)) })
+
+			await fetchRssFeeds(createDb(d1))
+
+			const updates = thumbnailUpdates(statements)
+			expect(updates).toHaveLength(1)
+			expect(updates[0].sql).toMatch(
+				/"feed_id" in \(select "id" from "feeds" where "feeds"\."use_images" = \?\)/i,
+			)
+			expect(updates[0].params.at(-1)).toBe(1)
+		})
+
 		it('R3: keeps the thumbnail and OGP lookup for a feed that uses images, in the same run', async () => {
 			const { d1, statements } = createFakeD1(
 				[],

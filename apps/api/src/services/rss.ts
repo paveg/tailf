@@ -5,6 +5,7 @@ import { D1_MAX_VARIABLES } from '../utils/constants'
 import { decodeHtmlEntities } from '../utils/html'
 import { generateId } from '../utils/id'
 import { encodeEmbedding } from './embedding'
+import { setPostThumbnail } from './post-thumbnail'
 import { safeFetchExternal } from './safe-fetch'
 import { calculateTechScore, embedAndScoreBatch } from './tech-score'
 import { assignTopics } from './topic-assignment'
@@ -454,7 +455,7 @@ export async function fetchRssFeeds(db: Database, ai?: Ai): Promise<void> {
 			try {
 				const ogImage = await fetchOgImage(post.url)
 				if (ogImage) {
-					await db.update(posts).set({ thumbnailUrl: ogImage }).where(eq(posts.id, post.id))
+					await setPostThumbnail(db, post.id, ogImage)
 					updated++
 					console.log(`[OGP] Updated thumbnail for post ${post.id}`)
 				}
