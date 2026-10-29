@@ -52,6 +52,7 @@ export const feeds = sqliteTable(
 		index('feeds_author_id_idx').on(table.authorId),
 		index('feeds_type_idx').on(table.type),
 		index('feeds_last_fetched_at_idx').on(table.lastFetchedAt),
+		index('feeds_bookmark_count_idx').on(table.bookmarkCount),
 	],
 )
 
