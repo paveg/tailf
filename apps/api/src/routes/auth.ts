@@ -26,7 +26,7 @@ authRoute.get('/github', (c) => {
 	const state = generateId()
 	setCookie(c, 'oauth_state', state, {
 		httpOnly: true,
-		secure: c.env.ENVIRONMENT === 'production',
+		secure: c.env.ENVIRONMENT !== 'development',
 		sameSite: 'Lax',
 		path: '/',
 		maxAge: OAUTH_STATE_COOKIE_MAX_AGE_SECONDS,
@@ -126,7 +126,7 @@ authRoute.get('/github/callback', async (c) => {
 	// Set session cookie
 	setCookie(c, 'session', sessionId, {
 		httpOnly: true,
-		secure: c.env.ENVIRONMENT === 'production',
+		secure: c.env.ENVIRONMENT !== 'development',
 		sameSite: 'Lax',
 		expires: expiresAt,
 		path: '/',

@@ -46,6 +46,7 @@ Open [http://localhost:4321](http://localhost:4321) for the web app and [http://
 Create a `.dev.vars` file in `apps/api/`:
 
 ```
+ENVIRONMENT=development
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 SESSION_SECRET=your_session_secret
