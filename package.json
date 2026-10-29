@@ -40,11 +40,5 @@
 		"husky": "9.1.7",
 		"lint-staged": "16.2.7",
 		"typescript": "^5.7.0"
-	},
-	"pnpm": {
-		"overrides": {
-			"sharp@<0.35.4": "^0.35.4",
-			"undici@<7.29.1": "^7.29.1"
-		}
 	}
 }
