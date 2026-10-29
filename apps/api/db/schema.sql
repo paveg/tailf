@@ -1,5 +1,5 @@
 -- Auto-generated schema dump
--- Generated at: 2026-01-26 02:06:46 UTC
+-- Generated at: 2026-10-29 13:49:32 UTC
 -- DO NOT EDIT - This file is auto-generated from migrations
 
 -- ==========================================
@@ -252,3 +252,102 @@ ALTER TABLE posts ADD COLUMN sub_topic TEXT;
 CREATE INDEX posts_main_topic_idx ON posts(main_topic);
 CREATE INDEX posts_sub_topic_idx ON posts(sub_topic);
 
+-- ==========================================
+-- 0009_add_last_fetched_at.sql
+-- ==========================================
+-- Add last_fetched_at column to feeds table for RSS fetch priority ordering
+ALTER TABLE feeds ADD COLUMN last_fetched_at INTEGER;
+
+-- Create index for efficient ordering by last_fetched_at
+CREATE INDEX IF NOT EXISTS feeds_last_fetched_at_idx ON feeds (last_fetched_at);
+
+-- ==========================================
+-- 0010_add_post_embedding.sql
+-- ==========================================
+-- Add embedding column to posts table for semantic search
+-- L2-normalized BGE-M3 vectors (1024-dim float32, 4096 bytes/row)
+-- NULL until backfilled (see semantic search PR #2)
+ALTER TABLE posts ADD COLUMN embedding BLOB;
+
+-- ==========================================
+-- 20261029133654_large_rocket_raccoon.sql
+-- ==========================================
+-- Current sql file was generated after introspecting the database
+-- If you want to run this migration please uncomment this code before executing migrations
+/*
+CREATE TABLE `feed_bookmarks` (
+	`user_id` text NOT NULL,
+	`feed_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`user_id`, `feed_id`),
+	FOREIGN KEY (`feed_id`) REFERENCES `feeds`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `feeds` (
+	`id` text PRIMARY KEY NOT NULL,
+	`title` text NOT NULL,
+	`description` text,
+	`feed_url` text NOT NULL,
+	`site_url` text NOT NULL,
+	`type` text DEFAULT 'blog' NOT NULL,
+	`is_official` integer DEFAULT false NOT NULL,
+	`bookmark_count` integer DEFAULT 0 NOT NULL,
+	`last_fetched_at` integer,
+	`author_id` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `feeds_bookmark_count_idx` ON `feeds` (`bookmark_count`);--> statement-breakpoint
+CREATE INDEX `feeds_last_fetched_at_idx` ON `feeds` (`last_fetched_at`);--> statement-breakpoint
+CREATE INDEX `feeds_type_idx` ON `feeds` (`type`);--> statement-breakpoint
+CREATE INDEX `feeds_author_id_idx` ON `feeds` (`author_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `feeds_feed_url_unique` ON `feeds` (`feed_url`);--> statement-breakpoint
+CREATE TABLE `posts` (
+	`id` text PRIMARY KEY NOT NULL,
+	`title` text NOT NULL,
+	`summary` text,
+	`url` text NOT NULL,
+	`thumbnail_url` text,
+	`published_at` integer NOT NULL,
+	`feed_id` text NOT NULL,
+	`tech_score` real,
+	`hatena_bookmark_count` integer,
+	`main_topic` text,
+	`sub_topic` text,
+	`embedding` blob,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`feed_id`) REFERENCES `feeds`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `posts_sub_topic_idx` ON `posts` (`sub_topic`);--> statement-breakpoint
+CREATE INDEX `posts_main_topic_idx` ON `posts` (`main_topic`);--> statement-breakpoint
+CREATE INDEX `posts_hatena_bookmark_count_idx` ON `posts` (`hatena_bookmark_count`);--> statement-breakpoint
+CREATE INDEX `posts_tech_score_idx` ON `posts` (`tech_score`);--> statement-breakpoint
+CREATE INDEX `posts_published_at_idx` ON `posts` (`published_at`);--> statement-breakpoint
+CREATE INDEX `posts_feed_id_idx` ON `posts` (`feed_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `posts_url_unique` ON `posts` (`url`);--> statement-breakpoint
+CREATE TABLE `sessions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `users` (
+	`id` text PRIMARY KEY NOT NULL,
+	`github_id` text NOT NULL,
+	`name` text NOT NULL,
+	`avatar_url` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `users_github_id_unique` ON `users` (`github_id`);
+*/
+-- ==========================================
+-- 20261029134932_bright_whistler.sql
+-- ==========================================
+ALTER TABLE `feeds` ADD `use_images` integer DEFAULT true NOT NULL;
