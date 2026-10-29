@@ -35,6 +35,12 @@ function getApiBaseUrl(): ApiBaseUrl {
 	const apiUrl = import.meta.env.PUBLIC_API_URL
 	const lenient = process.env.SSG_ALLOW_EMPTY === 'true'
 	if (apiUrl) return { url: apiUrl, strict: !lenient }
+	if (process.env.WORKERS_CI === '1') {
+		throw new Error(
+			'[SSG] PUBLIC_API_URL is not set in this Workers Builds build. ' +
+				'Set it as a build variable in the Cloudflare dashboard, otherwise the build would deploy empty pages.',
+		)
+	}
 	return { url: 'http://localhost:8788/api', strict: false }
 }
 
