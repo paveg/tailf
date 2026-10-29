@@ -6,6 +6,7 @@ export const createFeedSchema = v.object({
 	title: v.optional(v.pipe(v.string(), v.maxLength(255))),
 	description: v.optional(v.pipe(v.string(), v.maxLength(1000))),
 	siteUrl: v.optional(v.pipe(v.string(), v.url(), v.maxLength(2048))),
+	useImages: v.optional(v.boolean(), true),
 })
 
 export type CreateFeedInput = v.InferInput<typeof createFeedSchema>
@@ -15,6 +16,7 @@ export const updateFeedSchema = v.object({
 	title: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(255))),
 	description: v.optional(v.pipe(v.string(), v.maxLength(1000))),
 	type: v.optional(v.picklist(['blog', 'slide'])),
+	useImages: v.optional(v.boolean()),
 })
 
 export type UpdateFeedInput = v.InferInput<typeof updateFeedSchema>
