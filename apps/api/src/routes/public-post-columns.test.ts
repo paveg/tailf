@@ -17,14 +17,7 @@ vi.mock('../middleware/auth', () => ({
 	},
 }))
 
-/**
- * Public post endpoints must never select the posts.embedding BLOB: it is
- * 4096 bytes per row and serializes to a 4096-number JSON array, which made
- * list responses ~12x larger than necessary.
- *
- * The fake D1 records every SQL string drizzle prepares and answers with
- * canned rows keyed by table, so the handlers run end to end.
- */
+/** Fake D1 that records every prepared SQL string and answers with canned raw rows keyed by SQL. */
 
 type RawRows = unknown[][]
 

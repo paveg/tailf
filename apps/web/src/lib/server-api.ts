@@ -2,11 +2,7 @@
  * Server-side API client for build-time data fetching
  * Used by Astro pages during SSG
  *
- * 方式:
- * - /posts は先頭1ページ (SSG_POSTS_PAGE_SIZE 件) のみビルド時に取得し、
- *   PostList の初期データにする。以降のページ・フィルタ・検索はクライアントからAPIを叩く
- * - トップ・トピックページは fetchAllPostsForSSG で全件を取得するが、
- *   props には載せないのでHTMLサイズには影響しない
+ * /posts は先頭ページだけを取得する (全件をHTMLに埋めるとWorkersのアセット上限を超えるため)
  *
  * 失敗時の挙動:
  * - PUBLIC_API_URL が設定されている (= 本番ビルド) 環境では fetch 失敗・空件数
@@ -18,7 +14,7 @@
  */
 
 import type { Feed, PostWithFeed } from '@tailf/shared'
-import type { ApiResponse, CursorResponse } from './api'
+import { type ApiResponse, type CursorResponse, POSTS_PAGE_SIZE } from './api'
 
 interface ApiBaseUrl {
 	url: string
@@ -48,15 +44,9 @@ function abortIfStrict(strict: boolean, message: string): never | undefined {
 	return undefined
 }
 
-const SSG_POSTS_PAGE_SIZE = 12
-
-/**
- * Fetch the first page of tech posts (server-side, for SSG)
- * PostList seeds its default view (techOnly, recent, no filters) with this.
- */
 export async function fetchFirstPostsPageForSSG(): Promise<CursorResponse<PostWithFeed[]>> {
 	const { url: baseUrl, strict } = getApiBaseUrl()
-	const url = `${baseUrl}/posts?limit=${SSG_POSTS_PAGE_SIZE}&techOnly=true`
+	const url = `${baseUrl}/posts?limit=${POSTS_PAGE_SIZE}&techOnly=true`
 	const empty: CursorResponse<PostWithFeed[]> = {
 		data: [],
 		meta: { hasMore: false, nextCursor: null },

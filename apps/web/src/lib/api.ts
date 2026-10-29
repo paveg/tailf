@@ -86,6 +86,8 @@ export async function logout(): Promise<void> {
 // Posts (cursor-based pagination)
 // ============================================================
 
+export const POSTS_PAGE_SIZE = 12
+
 export interface CursorMeta {
 	nextCursor: string | null
 	hasMore: boolean

@@ -90,7 +90,6 @@ export const posts = sqliteTable(
 	],
 )
 
-// Use as `columns` in every public post query: the embedding BLOB is 4 KB per row.
 export const publicPostColumns = { embedding: false } as const
 
 // Feed bookmarks table (many-to-many: users <-> feeds)

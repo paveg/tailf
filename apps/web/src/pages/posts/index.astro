@@ -3,7 +3,6 @@ import Layout from '../../layouts/Layout.astro'
 import { PostList } from '../../components/PostList'
 import { fetchFirstPostsPageForSSG } from '../../lib/server-api'
 
-// Only the first page is embedded in HTML; the rest is fetched client-side
 const initialPage = await fetchFirstPostsPageForSSG()
 ---
 

@@ -1,15 +1,12 @@
 /**
  * 記事一覧コンポーネント
  *
- * 12件SSG + API方式
- * - initialPage: ビルド時に取得した先頭ページ。SSGの既定ビュー
- *   (techOnly / 新着 / 全ソース / 全トピック) のときだけ初期データとして使う
- * - 以降のページ・フィルタ変更・検索はAPIから取得
+ * SSGの先頭ページ (initialPage) を既定ビューの初期データにし、以降はAPIから取得する
  */
 import { type PostWithFeed, TOPIC_IDS, type TopicId } from '@tailf/shared'
 import { Bookmark, Code2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { CursorResponse, SortOption } from '@/lib/api'
+import { type CursorResponse, POSTS_PAGE_SIZE, type SortOption } from '@/lib/api'
 import {
 	useCurrentUser,
 	useInfinitePosts,
@@ -28,9 +25,6 @@ import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
-
-// Must match the limit used by fetchFirstPostsPageForSSG so the query key lines up
-const POSTS_PER_PAGE = 12
 
 type SourceFilter = 'all' | 'personal' | 'official'
 const SOURCE_FILTERS = ['all', 'personal', 'official'] as const
@@ -59,26 +53,26 @@ function PostListContent({ initialPage }: PostListContentProps) {
 
 	// Convert source filter to API parameter: all=undefined, personal=false, official=true
 	const official = source === 'all' ? undefined : source === 'official'
-	// SSG built the default view only; seeding any other query key would show wrong data.
-	// An empty initialPage (lenient local build) is skipped so the client fetches instead.
 	const isSsgDefaultView =
 		techOnly && official === undefined && sort === 'recent' && !selectedTopic && !bookmarkOnly
+	// An empty page (lenient local build) is not seeded so the client fetches instead
+	const ssgSeedPage = isSsgDefaultView && initialPage?.data.length ? initialPage : undefined
 	const apiQuery = useInfinitePosts(
-		POSTS_PER_PAGE,
+		POSTS_PAGE_SIZE,
 		techOnly,
 		official,
 		sort,
 		undefined,
 		selectedTopic,
-		isSsgDefaultView && initialPage?.data.length ? initialPage : undefined,
+		ssgSeedPage,
 	)
 	// ブックマークフィルター用のクエリ
-	const bookmarkQuery = useInfiniteUserFeed(POSTS_PER_PAGE, techOnly)
+	const bookmarkQuery = useInfiniteUserFeed(POSTS_PAGE_SIZE, techOnly)
 
 	// Search uses API (can't pre-build search results)
 	const searchQueryResult = useInfiniteSearchPosts(
 		debouncedQuery,
-		POSTS_PER_PAGE,
+		POSTS_PAGE_SIZE,
 		techOnly,
 		official,
 		selectedTopic,
